@@ -1,0 +1,1331 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { BookOpen, Plus, X, Save, Trash2, Check, Edit2, ChevronDown, Settings, Calendar, MessageSquare, FileText, AlertCircle } from 'lucide-react';
+import { useClasses } from '../src/hooks/useClasses';
+import { useStudents } from '../src/hooks/useStudents';
+import { useAuth } from '../src/hooks/useAuth';
+import { usePermissions } from '../src/hooks/usePermissions';
+import { useHolidays } from '../src/hooks/useHolidays';
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../src/config/firebase';
+import { ClassModel, Student } from '../types';
+
+// Default homework statuses with colors
+const DEFAULT_HOMEWORK_STATUSES = [
+  { value: 'completed', label: 'Đã làm', color: 'bg-green-500', textColor: 'text-white' },
+  { value: 'not_completed', label: 'Chưa làm', color: 'bg-red-500', textColor: 'text-white' },
+  { value: 'no_homework', label: 'Không có bài', color: 'bg-yellow-400', textColor: 'text-gray-800' },
+  { value: 'absent', label: 'Nghỉ học', color: 'bg-blue-400', textColor: 'text-white' },
+];
+
+interface HomeworkStatus {
+  value: string;
+  label: string;
+  color: string;
+  textColor: string;
+}
+
+interface Homework {
+  id: string;
+  name: string;
+  statuses?: HomeworkStatus[];
+}
+
+interface StudentHomeworkRecord {
+  studentId: string;
+  studentName: string;
+  homeworks: {
+    [homeworkId: string]: {
+      status: string;
+      score: number | null;
+    };
+  };
+  note: string;
+}
+
+interface HomeworkSession {
+  id?: string;
+  classId: string;
+  className: string;
+  sessionId: string;
+  sessionNumber: number;
+  sessionDate: string;
+  homeworks: Homework[];
+  studentRecords: StudentHomeworkRecord[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+interface MonthlyComment {
+  id?: string;
+  classId: string;
+  studentId: string;
+  studentName: string;
+  month: string; // YYYY-MM
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+interface TestComment {
+  id?: string;
+  classId: string;
+  studentId: string;
+  studentName: string;
+  testName: string;
+  testDate: string;
+  comment: string;
+  score: number | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+export const HomeworkManager: React.FC = () => {
+  const { classes } = useClasses();
+  const { students: allStudents } = useStudents({});
+  const { user, staffData } = useAuth();
+  const { shouldShowOnlyOwnClasses, staffId } = usePermissions();
+  const { holidays } = useHolidays();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'homework' | 'monthly' | 'test'>('homework');
+
+  // State
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // Homework state
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  const [newHomeworkName, setNewHomeworkName] = useState('');
+  const [studentRecords, setStudentRecords] = useState<StudentHomeworkRecord[]>([]);
+  const [existingRecordId, setExistingRecordId] = useState<string | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Bulk homework state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [selectedBulkClassIds, setSelectedBulkClassIds] = useState<string[]>([]);
+  const [bulkHomeworks, setBulkHomeworks] = useState<string[]>(['']);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Status config modal
+  const [showStatusConfig, setShowStatusConfig] = useState(false);
+  const [globalStatuses, setGlobalStatuses] = useState<HomeworkStatus[]>(DEFAULT_HOMEWORK_STATUSES);
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState('bg-gray-500');
+
+  // Monthly comments state
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [monthlyComments, setMonthlyComments] = useState<MonthlyComment[]>([]);
+  const [loadingMonthly, setLoadingMonthly] = useState(false);
+
+  // Test comments state
+  const [testComments, setTestComments] = useState<TestComment[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [showAddTestModal, setShowAddTestModal] = useState(false);
+  const [newTestName, setNewTestName] = useState('');
+  const [newTestDate, setNewTestDate] = useState('');
+
+  // Filter classes for teachers
+  const filteredClasses = useMemo(() => {
+    const onlyOwn = shouldShowOnlyOwnClasses('homework');
+    const excludeStatuses = ['Đã kết thúc', 'Đã hủy', 'Kết thúc'];
+
+    if (!onlyOwn || !staffData) {
+      return classes.filter(c => !excludeStatuses.includes(c.status || ''));
+    }
+
+    const myName = staffData.name;
+    return classes.filter(cls =>
+      !excludeStatuses.includes(cls.status || '') &&
+      (cls.teacher === myName || cls.assistant === myName || cls.foreignTeacher === myName)
+    );
+  }, [classes, shouldShowOnlyOwnClasses, staffData]);
+
+  // Get students in selected class
+  const studentsInClass = useMemo(() => {
+    if (!selectedClassId) return [];
+    const selectedClass = classes.find(c => c.id === selectedClassId);
+    if (!selectedClass) return [];
+
+    return allStudents.filter(s =>
+      s.classId === selectedClassId ||
+      s.class === selectedClass.name ||
+      s.className === selectedClass.name
+    ).filter(s => s.status === 'Đang học' || s.status === 'Học thử' || s.status === 'Nợ phí');
+  }, [selectedClassId, classes, allStudents]);
+
+  // Check if date is a holiday
+  const isHoliday = (dateStr: string): string | null => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    for (const h of holidays) {
+      const start = new Date(h.startDate);
+      const end = new Date(h.endDate || h.startDate);
+      if (date >= start && date <= end) {
+        return h.name || 'Lịch nghỉ chung';
+      }
+    }
+    return null;
+  };
+
+  // Load global statuses from Firestore
+  useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'homeworkStatuses');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setGlobalStatuses(docSnap.data().statuses || DEFAULT_HOMEWORK_STATUSES);
+        }
+      } catch (err) {
+        console.error('Error loading statuses:', err);
+      }
+    };
+    loadStatuses();
+  }, []);
+
+  // Load sessions when class is selected
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (!selectedClassId) {
+        setSessions([]);
+        return;
+      }
+
+      setLoadingSessions(true);
+      try {
+        const sessionsSnap = await getDocs(
+          query(collection(db, 'classSessions'), where('classId', '==', selectedClassId))
+        );
+        const data = sessionsSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a: any, b: any) => a.sessionNumber - b.sessionNumber);
+        setSessions(data);
+      } catch (err) {
+        console.error('Error loading sessions:', err);
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+
+    loadSessions();
+  }, [selectedClassId]);
+
+  // Load existing homework record when session is selected
+  useEffect(() => {
+    const loadExistingRecord = async () => {
+      if (!selectedClassId || !selectedSessionId) {
+        setHomeworks([]);
+        setStudentRecords([]);
+        setExistingRecordId(null);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const recordsSnap = await getDocs(
+          query(
+            collection(db, 'homeworkRecords'),
+            where('classId', '==', selectedClassId),
+            where('sessionId', '==', selectedSessionId)
+          )
+        );
+
+        if (!recordsSnap.empty) {
+          const record = recordsSnap.docs[0];
+          const data = record.data() as HomeworkSession;
+          setExistingRecordId(record.id);
+          setHomeworks(data.homeworks || []);
+          setStudentRecords(data.studentRecords || []);
+        } else {
+          setExistingRecordId(null);
+          setHomeworks([]);
+          setStudentRecords(
+            studentsInClass.map(s => ({
+              studentId: s.id,
+              studentName: s.fullName || s.name || '',
+              homeworks: {},
+              note: ''
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Error loading homework record:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingRecord();
+  }, [selectedClassId, selectedSessionId, studentsInClass]);
+
+  // Load monthly comments
+  useEffect(() => {
+    const loadMonthlyComments = async () => {
+      if (!selectedClassId || activeTab !== 'monthly') return;
+
+      setLoadingMonthly(true);
+      try {
+        const q = query(
+          collection(db, 'monthlyComments'),
+          where('classId', '==', selectedClassId),
+          where('month', '==', selectedMonth)
+        );
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as MonthlyComment[];
+        setMonthlyComments(data);
+      } catch (err) {
+        console.error('Error loading monthly comments:', err);
+      } finally {
+        setLoadingMonthly(false);
+      }
+    };
+    loadMonthlyComments();
+  }, [selectedClassId, selectedMonth, activeTab]);
+
+  // Load test comments
+  useEffect(() => {
+    const loadTestComments = async () => {
+      if (!selectedClassId || activeTab !== 'test') return;
+
+      setLoadingTests(true);
+      try {
+        const q = query(
+          collection(db, 'testComments'),
+          where('classId', '==', selectedClassId)
+        );
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as TestComment[];
+        data.sort((a, b) => (b.testDate || '').localeCompare(a.testDate || ''));
+        setTestComments(data);
+      } catch (err) {
+        console.error('Error loading test comments:', err);
+      } finally {
+        setLoadingTests(false);
+      }
+    };
+    loadTestComments();
+  }, [selectedClassId, activeTab]);
+
+  // Add new homework
+  const handleAddHomework = () => {
+    if (!newHomeworkName.trim()) return;
+
+    const newHomework: Homework = {
+      id: `hw_${Date.now()}`,
+      name: newHomeworkName.trim(),
+      statuses: globalStatuses
+    };
+
+    setHomeworks([...homeworks, newHomework]);
+
+    setStudentRecords(prev => prev.map(record => ({
+      ...record,
+      homeworks: {
+        ...record.homeworks,
+        [newHomework.id]: { status: 'not_completed', score: null }
+      }
+    })));
+
+    setNewHomeworkName('');
+  };
+
+  // Remove homework
+  const handleRemoveHomework = (homeworkId: string) => {
+    setHomeworks(prev => prev.filter(h => h.id !== homeworkId));
+    setStudentRecords(prev => prev.map(record => {
+      const { [homeworkId]: removed, ...rest } = record.homeworks;
+      return { ...record, homeworks: rest };
+    }));
+  };
+
+  // Update homework status
+  const handleStatusChange = (studentId: string, homeworkId: string, status: string) => {
+    setStudentRecords(prev => prev.map(record => {
+      if (record.studentId !== studentId) return record;
+      return {
+        ...record,
+        homeworks: {
+          ...record.homeworks,
+          [homeworkId]: {
+            ...record.homeworks[homeworkId],
+            status
+          }
+        }
+      };
+    }));
+  };
+
+  // Update score
+  const handleScoreChange = (studentId: string, homeworkId: string, score: string) => {
+    const scoreNum = score === '' ? null : parseFloat(score);
+    setStudentRecords(prev => prev.map(record => {
+      if (record.studentId !== studentId) return record;
+      return {
+        ...record,
+        homeworks: {
+          ...record.homeworks,
+          [homeworkId]: {
+            ...record.homeworks[homeworkId],
+            score: scoreNum
+          }
+        }
+      };
+    }));
+  };
+
+  // Update note
+  const handleNoteChange = (studentId: string, note: string) => {
+    setStudentRecords(prev => prev.map(record => {
+      if (record.studentId !== studentId) return record;
+      return { ...record, note };
+    }));
+  };
+
+  // Save homework records
+  const handleSave = async () => {
+    if (!selectedClassId || !selectedSessionId) {
+      alert('Vui lòng chọn lớp và buổi học!');
+      return;
+    }
+
+    if (homeworks.length === 0) {
+      alert('Vui lòng thêm ít nhất 1 bài tập!');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const selectedClass = classes.find(c => c.id === selectedClassId);
+      const selectedSession = sessions.find(s => s.id === selectedSessionId);
+
+      const recordData: any = {
+        classId: selectedClassId,
+        className: selectedClass?.name || '',
+        sessionId: selectedSessionId,
+        sessionNumber: selectedSession?.sessionNumber || 0,
+        sessionDate: selectedSession?.date || '',
+        homeworks,
+        studentRecords: studentRecords || [],
+        updatedAt: new Date().toISOString(),
+        createdBy: staffData?.name || user?.displayName || 'Unknown'
+      };
+
+      if (existingRecordId) {
+        await updateDoc(doc(db, 'homeworkRecords', existingRecordId), recordData);
+      } else {
+        recordData.createdAt = new Date().toISOString();
+        const docRef = await addDoc(collection(db, 'homeworkRecords'), recordData);
+        setExistingRecordId(docRef.id);
+      }
+
+      alert('Đã lưu thành công!');
+    } catch (err: any) {
+      console.error('Error saving homework:', err);
+      alert('Có lỗi xảy ra khi lưu: ' + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save global statuses
+  const handleSaveStatuses = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'homeworkStatuses'), { statuses: globalStatuses });
+      alert('Đã lưu cấu hình trạng thái!');
+      setShowStatusConfig(false);
+    } catch (err) {
+      console.error('Error saving statuses:', err);
+      alert('Có lỗi xảy ra!');
+    }
+  };
+
+  // Add new status
+  const handleAddStatus = () => {
+    if (!newStatusLabel.trim()) return;
+    const newStatus: HomeworkStatus = {
+      value: newStatusLabel.toLowerCase().replace(/\s+/g, '_'),
+      label: newStatusLabel,
+      color: newStatusColor,
+      textColor: newStatusColor.includes('yellow') || newStatusColor.includes('gray-2') ? 'text-gray-800' : 'text-white'
+    };
+    setGlobalStatuses([...globalStatuses, newStatus]);
+    setNewStatusLabel('');
+    setNewStatusColor('bg-gray-500');
+  };
+
+  // Remove status
+  const handleRemoveStatus = (value: string) => {
+    setGlobalStatuses(prev => prev.filter(s => s.value !== value));
+  };
+
+  // Toggle bulk class selection
+  const toggleBulkClass = (classId: string) => {
+    setSelectedBulkClassIds(prev =>
+      prev.includes(classId)
+        ? prev.filter(id => id !== classId)
+        : [...prev, classId]
+    );
+  };
+
+  // Save bulk homework for multiple classes
+  const handleSaveBulkHomework = async () => {
+    const validHomeworks = bulkHomeworks.filter(h => h.trim());
+    if (selectedBulkClassIds.length === 0 || validHomeworks.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 lớp và nhập ít nhất 1 bài tập!');
+      return;
+    }
+
+    setBulkSaving(true);
+    try {
+      let totalCreated = 0;
+      let totalUpdated = 0;
+
+      for (const classId of selectedBulkClassIds) {
+        const selectedClass = classes.find(c => c.id === classId);
+
+        // Get all sessions for this class
+        const sessionsSnap = await getDocs(
+          query(collection(db, 'classSessions'), where('classId', '==', classId))
+        );
+        const classSessions = sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const homeworkList = validHomeworks.map(name => ({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name,
+          statuses: globalStatuses
+        }));
+
+        for (const session of classSessions) {
+          const existingQ = query(
+            collection(db, 'homeworkRecords'),
+            where('classId', '==', classId),
+            where('sessionId', '==', session.id)
+          );
+          const existingSnap = await getDocs(existingQ);
+
+          if (!existingSnap.empty) {
+            const existingDoc = existingSnap.docs[0];
+            const existingData = existingDoc.data();
+            const existingHomeworks = existingData.homeworks || [];
+
+            const newHomeworks = homeworkList.filter(
+              h => !existingHomeworks.some((eh: any) => eh.name === h.name)
+            );
+
+            if (newHomeworks.length > 0) {
+              await updateDoc(doc(db, 'homeworkRecords', existingDoc.id), {
+                homeworks: [...existingHomeworks, ...newHomeworks],
+                updatedAt: new Date().toISOString()
+              });
+              totalUpdated++;
+            }
+          } else {
+            await addDoc(collection(db, 'homeworkRecords'), {
+              classId,
+              className: selectedClass?.name || '',
+              sessionId: session.id,
+              sessionNumber: (session as any).sessionNumber || 0,
+              sessionDate: (session as any).date || '',
+              homeworks: homeworkList,
+              studentRecords: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              createdBy: staffData?.name || user?.displayName || 'Unknown'
+            });
+            totalCreated++;
+          }
+        }
+      }
+
+      alert(`Đã thêm bài tập vào ${totalCreated} buổi mới và cập nhật ${totalUpdated} buổi có sẵn!`);
+      setShowBulkModal(false);
+      setBulkHomeworks(['']);
+      setSelectedBulkClassIds([]);
+    } catch (err: any) {
+      console.error('Error saving bulk homework:', err);
+      alert('Có lỗi xảy ra: ' + (err.message || err));
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  // Save monthly comment
+  const handleSaveMonthlyComment = async (studentId: string, studentName: string, comment: string) => {
+    try {
+      const existing = monthlyComments.find(c => c.studentId === studentId);
+      if (existing?.id) {
+        await updateDoc(doc(db, 'monthlyComments', existing.id), {
+          comment,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        await addDoc(collection(db, 'monthlyComments'), {
+          classId: selectedClassId,
+          studentId,
+          studentName,
+          month: selectedMonth,
+          comment,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: staffData?.name || user?.displayName || 'Unknown'
+        });
+      }
+      // Reload
+      const q = query(
+        collection(db, 'monthlyComments'),
+        where('classId', '==', selectedClassId),
+        where('month', '==', selectedMonth)
+      );
+      const snap = await getDocs(q);
+      setMonthlyComments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as MonthlyComment[]);
+    } catch (err) {
+      console.error('Error saving monthly comment:', err);
+      alert('Có lỗi xảy ra!');
+    }
+  };
+
+  // Save test comment
+  const handleSaveTestComment = async (testName: string, studentId: string, studentName: string, comment: string, score: number | null) => {
+    try {
+      const existing = testComments.find(c => c.testName === testName && c.studentId === studentId);
+      if (existing?.id) {
+        await updateDoc(doc(db, 'testComments', existing.id), {
+          comment,
+          score,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        await addDoc(collection(db, 'testComments'), {
+          classId: selectedClassId,
+          studentId,
+          studentName,
+          testName,
+          testDate: '',
+          comment,
+          score,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: staffData?.name || user?.displayName || 'Unknown'
+        });
+      }
+      // Reload
+      const q = query(collection(db, 'testComments'), where('classId', '==', selectedClassId));
+      const snap = await getDocs(q);
+      setTestComments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as TestComment[]);
+    } catch (err) {
+      console.error('Error saving test comment:', err);
+    }
+  };
+
+  // Get status style
+  const getStatusStyle = (status: string): { color: string; textColor: string; label: string } => {
+    const found = globalStatuses.find(s => s.value === status);
+    return found || { color: 'bg-gray-300', textColor: 'text-gray-700', label: status };
+  };
+
+  // Color options for status
+  const colorOptions = [
+    { value: 'bg-green-500', label: 'Xanh lá' },
+    { value: 'bg-red-500', label: 'Đỏ' },
+    { value: 'bg-yellow-400', label: 'Vàng' },
+    { value: 'bg-blue-400', label: 'Xanh dương' },
+    { value: 'bg-purple-500', label: 'Tím' },
+    { value: 'bg-orange-500', label: 'Cam' },
+    { value: 'bg-pink-500', label: 'Hồng' },
+    { value: 'bg-gray-500', label: 'Xám' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <BookOpen className="text-blue-600" />
+            Quản lý Bài tập về nhà
+          </h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowStatusConfig(true)}
+              className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm"
+              title="Cấu hình trạng thái bài tập"
+            >
+              <Settings size={16} />
+              Cấu hình
+            </button>
+            <button
+              onClick={() => setShowBulkModal(true)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm font-medium"
+            >
+              <Plus size={18} />
+              Thêm hàng loạt
+            </button>
+          </div>
+        </div>
+
+        {/* Class Selector */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Chọn lớp học</label>
+          <select
+            value={selectedClassId}
+            onChange={(e) => {
+              setSelectedClassId(e.target.value);
+              setSelectedSessionId('');
+            }}
+            className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">-- Chọn lớp --</option>
+            {filteredClasses.map(cls => (
+              <option key={cls.id} value={cls.id}>{cls.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Tabs */}
+        {selectedClassId && (
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('homework')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === 'homework'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              <FileText size={16} className="inline mr-2" />
+              Bài tập theo buổi
+            </button>
+            <button
+              onClick={() => setActiveTab('monthly')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === 'monthly'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              <Calendar size={16} className="inline mr-2" />
+              Nhận xét tháng
+            </button>
+            <button
+              onClick={() => setActiveTab('test')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === 'test'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              <MessageSquare size={16} className="inline mr-2" />
+              Nhận xét bài Test
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* TAB: Homework by Session */}
+      {activeTab === 'homework' && selectedClassId && (
+        <>
+          {/* Session Selector */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chọn buổi học</label>
+            <select
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              disabled={loadingSessions}
+              className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+            >
+              <option value="">-- Chọn buổi học --</option>
+              {sessions.map(session => {
+                const holidayName = isHoliday(session.date);
+                return (
+                  <option key={session.id} value={session.id}>
+                    Buổi {session.sessionNumber} - {session.date} ({session.status})
+                    {holidayName && ` (${holidayName})`}
+                  </option>
+                );
+              })}
+            </select>
+
+            {/* Holiday Warning */}
+            {selectedSessionId && (() => {
+              const session = sessions.find(s => s.id === selectedSessionId);
+              const holidayName = session ? isHoliday(session.date) : null;
+              if (holidayName) {
+                return (
+                  <div className="mt-2 flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-2 rounded-lg text-sm">
+                    <AlertCircle size={16} />
+                    <span>Buổi học này trùng với: <strong>{holidayName}</strong></span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+
+          {/* Homework Management */}
+          {selectedSessionId && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Khai báo Bài tập</h3>
+
+              {/* Add Homework */}
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newHomeworkName}
+                  onChange={(e) => setNewHomeworkName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddHomework()}
+                  placeholder="Tên bài tập..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleAddHomework}
+                  disabled={!newHomeworkName.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus size={18} />
+                  Thêm
+                </button>
+              </div>
+
+              {/* Homework Tags */}
+              {homeworks.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {homeworks.map(hw => (
+                    <span
+                      key={hw.id}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                    >
+                      {hw.name}
+                      <button
+                        onClick={() => handleRemoveHomework(hw.id)}
+                        className="ml-1 text-blue-500 hover:text-red-500"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Student Records Table */}
+          {selectedSessionId && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">STT</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">Tên Học sinh</th>
+                          {homeworks.map(hw => (
+                            <th key={hw.id} className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b min-w-[160px]">
+                              {hw.name}
+                            </th>
+                          ))}
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b min-w-[200px]">
+                            Ghi chú
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {studentRecords.length > 0 ? (
+                          studentRecords.map((record, idx) => (
+                            <tr key={record.studentId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-500">{idx + 1}</td>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {record.studentName}
+                              </td>
+                              {homeworks.map(hw => {
+                                const hwRecord = record.homeworks[hw.id] || { status: 'not_completed', score: null };
+                                const statusStyle = getStatusStyle(hwRecord.status);
+                                return (
+                                  <td key={hw.id} className="px-4 py-3 text-center">
+                                    <select
+                                      value={hwRecord.status}
+                                      onChange={(e) => handleStatusChange(record.studentId, hw.id, e.target.value)}
+                                      className={`w-full px-2 py-1.5 rounded-lg text-sm font-medium ${statusStyle.color} ${statusStyle.textColor} border-0 cursor-pointer appearance-none text-center`}
+                                      style={{ WebkitAppearance: 'none' }}
+                                    >
+                                      {globalStatuses.map(s => (
+                                        <option key={s.value} value={s.value}>{s.label}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                );
+                              })}
+                              <td className="px-4 py-3">
+                                <input
+                                  type="text"
+                                  value={record.note}
+                                  onChange={(e) => handleNoteChange(record.studentId, e.target.value)}
+                                  placeholder="Ghi chú..."
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={homeworks.length + 3} className="px-4 py-8 text-center text-gray-400">
+                              {homeworks.length === 0
+                                ? 'Vui lòng thêm bài tập để bắt đầu'
+                                : 'Không có học sinh trong lớp này'
+                              }
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-center">
+                    <button
+                      onClick={handleSave}
+                      disabled={saving || homeworks.length === 0}
+                      className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
+                    >
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={18} />
+                          Lưu Dữ liệu
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TAB: Monthly Comments */}
+      {activeTab === 'monthly' && selectedClassId && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Nhận xét hàng tháng</h3>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          {loadingMonthly ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {studentsInClass.map(student => {
+                const existing = monthlyComments.find(c => c.studentId === student.id);
+                return (
+                  <div key={student.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="font-medium text-gray-800 mb-2">{student.fullName || student.name}</div>
+                    <textarea
+                      defaultValue={existing?.comment || ''}
+                      onBlur={(e) => handleSaveMonthlyComment(student.id, student.fullName || student.name || '', e.target.value)}
+                      placeholder="Nhập nhận xét cho học viên..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                );
+              })}
+              {studentsInClass.length === 0 && (
+                <p className="text-center text-gray-400 py-8">Không có học sinh trong lớp này</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Test Comments */}
+      {activeTab === 'test' && selectedClassId && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Nhận xét theo bài Test lớn</h3>
+            <button
+              onClick={() => setShowAddTestModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+            >
+              <Plus size={16} />
+              Thêm bài Test
+            </button>
+          </div>
+
+          {loadingTests ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Group by test */}
+              {Array.from(new Set(testComments.map(t => t.testName))).map((testName) => {
+                const testNameStr = testName as string;
+                const testItems = testComments.filter(t => t.testName === testNameStr);
+                const testDate = testItems[0]?.testDate;
+                return (
+                  <div key={testNameStr} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 font-medium text-gray-800 border-b">
+                      {testNameStr} {testDate && `- ${testDate}`}
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {studentsInClass.map(student => {
+                        const existing = testItems.find(t => t.studentId === student.id);
+                        const studentName = student.fullName || student.name || '';
+                        return (
+                          <div key={student.id} className="p-4 flex items-start gap-4">
+                            <div className="w-40 font-medium text-gray-800">{studentName}</div>
+                            <div className="flex-1">
+                              <textarea
+                                defaultValue={existing?.comment || ''}
+                                placeholder="Nhận xét..."
+                                rows={2}
+                                onBlur={(e) => handleSaveTestComment(
+                                  testNameStr,
+                                  student.id,
+                                  studentName,
+                                  e.target.value,
+                                  existing?.score ?? null
+                                )}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="w-20">
+                              <input
+                                type="number"
+                                defaultValue={existing?.score ?? ''}
+                                placeholder="Điểm"
+                                onBlur={(e) => handleSaveTestComment(
+                                  testNameStr,
+                                  student.id,
+                                  studentName,
+                                  existing?.comment || '',
+                                  e.target.value ? parseFloat(e.target.value) : null
+                                )}
+                                className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {testComments.length === 0 && (
+                <p className="text-center text-gray-400 py-8">Chưa có bài test nào. Bấm "Thêm bài Test" để tạo mới.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!selectedClassId && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-600 mb-2">Chọn lớp học</h3>
+          <p className="text-gray-400">Vui lòng chọn lớp học để quản lý bài tập về nhà</p>
+        </div>
+      )}
+
+      {/* Bulk Homework Modal - Multi-select classes */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-800">Thêm bài tập hàng loạt</h3>
+              <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Multi-select Classes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Chọn lớp học (có thể chọn nhiều)
+                </label>
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                  {filteredClasses.map(cls => (
+                    <label
+                      key={cls.id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedBulkClassIds.includes(cls.id)}
+                        onChange={() => toggleBulkClass(cls.id)}
+                        className="w-4 h-4 text-purple-600 rounded"
+                      />
+                      <span className="text-sm">{cls.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Đã chọn: {selectedBulkClassIds.length} lớp
+                </p>
+              </div>
+
+              {/* Homework List */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Danh sách bài tập</label>
+                <div className="space-y-2">
+                  {bulkHomeworks.map((hw, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={hw}
+                        onChange={(e) => {
+                          const updated = [...bulkHomeworks];
+                          updated[index] = e.target.value;
+                          setBulkHomeworks(updated);
+                        }}
+                        placeholder={`Bài tập ${index + 1}...`}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      {bulkHomeworks.length > 1 && (
+                        <button
+                          onClick={() => setBulkHomeworks(prev => prev.filter((_, i) => i !== index))}
+                          className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setBulkHomeworks([...bulkHomeworks, ''])}
+                  className="mt-2 text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                >
+                  <Plus size={16} />
+                  Thêm bài tập
+                </button>
+              </div>
+
+              {/* Preview */}
+              {selectedBulkClassIds.length > 0 && (
+                <div className="bg-purple-50 p-3 rounded-lg text-sm">
+                  <p className="text-purple-700">
+                    <strong>Xem trước:</strong> Sẽ thêm {bulkHomeworks.filter(h => h.trim()).length} bài tập
+                    vào tất cả buổi học của {selectedBulkClassIds.length} lớp đã chọn
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveBulkHomework}
+                disabled={bulkSaving || selectedBulkClassIds.length === 0 || bulkHomeworks.filter(h => h.trim()).length === 0}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {bulkSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Thêm hàng loạt
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Config Modal */}
+      {showStatusConfig && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-800">Cấu hình trạng thái bài tập</h3>
+              <button onClick={() => setShowStatusConfig(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Existing Statuses */}
+              <div className="space-y-2">
+                {globalStatuses.map(status => (
+                  <div key={status.value} className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-lg text-sm font-medium ${status.color} ${status.textColor}`}>
+                      {status.label}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveStatus(status.value)}
+                      className="ml-auto text-red-500 hover:text-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Status */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Thêm trạng thái mới</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newStatusLabel}
+                    onChange={(e) => setNewStatusLabel(e.target.value)}
+                    placeholder="Tên trạng thái..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <select
+                    value={newStatusColor}
+                    onChange={(e) => setNewStatusColor(e.target.value)}
+                    className={`px-3 py-2 rounded-lg text-sm ${newStatusColor} text-white`}
+                  >
+                    {colorOptions.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAddStatus}
+                    disabled={!newStatusLabel.trim()}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowStatusConfig(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveStatuses}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Save size={18} />
+                Lưu cấu hình
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Test Modal */}
+      {showAddTestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-800">Thêm bài Test mới</h3>
+              <button onClick={() => setShowAddTestModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tên bài Test</label>
+                <input
+                  type="text"
+                  value={newTestName}
+                  onChange={(e) => setNewTestName(e.target.value)}
+                  placeholder="VD: Test giữa kỳ 1..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày Test</label>
+                <input
+                  type="date"
+                  value={newTestDate}
+                  onChange={(e) => setNewTestDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddTestModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newTestName.trim()) {
+                    alert('Vui lòng nhập tên bài test!');
+                    return;
+                  }
+                  try {
+                    // Create test records for all students
+                    for (const student of studentsInClass) {
+                      await addDoc(collection(db, 'testComments'), {
+                        classId: selectedClassId,
+                        studentId: student.id,
+                        studentName: student.fullName || student.name || '',
+                        testName: newTestName,
+                        testDate: newTestDate,
+                        comment: '',
+                        score: null,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        createdBy: staffData?.name || user?.displayName || 'Unknown'
+                      });
+                    }
+                    // Reload
+                    const q = query(collection(db, 'testComments'), where('classId', '==', selectedClassId));
+                    const snap = await getDocs(q);
+                    setTestComments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as TestComment[]);
+                    setShowAddTestModal(false);
+                    setNewTestName('');
+                    setNewTestDate('');
+                    alert('Đã thêm bài test!');
+                  } catch (err) {
+                    console.error('Error adding test:', err);
+                    alert('Có lỗi xảy ra!');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Thêm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
