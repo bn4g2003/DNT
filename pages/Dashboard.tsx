@@ -6,9 +6,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Users, 
-  BookOpen, 
+import {
+  Users,
+  BookOpen,
   TrendingUp,
   Gift,
   Package,
@@ -29,13 +29,13 @@ import {
   ChevronRight,
   Activity
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -127,33 +127,33 @@ export const Dashboard: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [currentMonth] = useState('Tháng hiện tại');
-  
+
   // State cho bảng thống kê
   const [statsMonth, setStatsMonth] = useState(new Date().getMonth() + 1);
   const [statsYear, setStatsYear] = useState(new Date().getFullYear());
   const [statsCategory, setStatsCategory] = useState('Lương nhân viên');
   const [statsSortOrder, setStatsSortOrder] = useState('asc'); // asc = thấp đến cao
   const [statsLimit, setStatsLimit] = useState(5);
-  
+
   // Fetch salary report data
   const { summaries: salaryReportData } = useSalaryReport(statsMonth, statsYear);
-  
+
   // Fetch products data (realtime)
   const { products: allProducts } = useProducts();
-  
+
   // State cho bảng sinh nhật
   const [birthdayFilter, setBirthdayFilter] = useState<'month' | 'week' | 'today'>('month');
   const [birthdayType, setBirthdayType] = useState<'staff' | 'student'>('staff');
   const [birthdayGifts, setBirthdayGifts] = useState<Record<string, { giftPrepared: boolean; giftGiven: boolean }>>({});
   const [birthdayBranch, setBirthdayBranch] = useState<string>('all');
-  
+
   // State cho bảng vật phẩm kho
   const [stockFilter, setStockFilter] = useState<'low' | 'all'>('low');
-  
+
   // State cho chi nhánh/cơ sở
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [centerList, setCenterList] = useState<{ id: string; name: string }[]>([]);
-  
+
   // Fetch centers from Firestore
   useEffect(() => {
     const fetchCenters = async () => {
@@ -185,12 +185,12 @@ export const Dashboard: React.FC = () => {
     }))
   ];
   const selectedBranchData = branches.find(b => b.id === selectedBranch) || branches[0];
-  
+
   // State cho modal danh sách học viên
   const [allStudents, setAllStudents] = useState<StudentData[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
-  
+
   // State cho doanh số bán hàng từ báo cáo tài chính
   const [revenuePieData, setRevenuePieData] = useState<{ name: string; value: number; color: string }[]>([]);
   const [seeding, setSeeding] = useState(false);
@@ -199,7 +199,7 @@ export const Dashboard: React.FC = () => {
   const handleSeedData = async () => {
     if (seeding) return;
     if (!confirm('Bạn có muốn tạo dữ liệu test TOÀN BỘ cho app không?\n\nSẽ tạo: Students, Classes, Parents, Contracts, Staff, Products, Leads, Campaigns, Attendance, Tutoring, Feedback, Invoices, Work Sessions...')) return;
-    
+
     setSeeding(true);
     try {
       const results = await seedAllData();
@@ -219,7 +219,7 @@ export const Dashboard: React.FC = () => {
     if (seeding) return;
     if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA TOÀN BỘ dữ liệu không?\n\nHành động này không thể hoàn tác!')) return;
     if (!confirm('Xác nhận lần cuối: XÓA TẤT CẢ DỮ LIỆU?')) return;
-    
+
     setSeeding(true);
     try {
       await clearAllData();
@@ -241,7 +241,7 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     const thisYear = new Date().getFullYear();
     const thisMonth = new Date().getMonth() + 1;
-    
+
     const unsubscribe = onSnapshot(
       query(collection(db, 'birthdayGifts'), where('year', '==', thisYear), where('month', '==', thisMonth)),
       (snapshot) => {
@@ -265,10 +265,10 @@ export const Dashboard: React.FC = () => {
     const thisMonth = new Date().getMonth() + 1;
     const docId = `${studentId}_${thisYear}_${thisMonth}`;
     const docRef = doc(db, 'birthdayGifts', docId);
-    
+
     const currentStatus = birthdayGifts[studentId]?.[field] || false;
     const newStatus = !currentStatus;
-    
+
     await setDoc(docRef, {
       studentId,
       studentName,
@@ -282,25 +282,25 @@ export const Dashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch students
       const studentsSnap = await getDocs(collection(db, 'students'));
       const students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as StudentData[];
       setAllStudents(students);
-      
+
       // Fetch classes
       const classesSnap = await getDocs(collection(db, 'classes'));
       const classes = classesSnap.docs.map(d => d.data());
-      
+
       // Fetch contracts for revenue
       const contractsSnap = await getDocs(collection(db, 'contracts'));
       const contracts = contractsSnap.docs.map(d => d.data());
-      
+
       // Calculate stats
       const totalStudents = students.length;
       const totalClasses = classes.length;
       const avgPerClass = totalClasses > 0 ? (totalStudents / totalClasses).toFixed(1) : 0;
-      
+
       // Students by status - fetch real data (dùng giá trị Vietnamese từ enum)
       const statusCounts = {
         'Nợ phí': students.filter(s => s.hasDebt || s.status === 'Nợ phí').length,
@@ -314,7 +314,7 @@ export const Dashboard: React.FC = () => {
           return (now.getTime() - created.getTime()) < 30 * 24 * 60 * 60 * 1000;
         }).length,
       };
-      
+
       const studentsByStatus = [
         { name: 'Nợ phí', value: statusCounts['Nợ phí'], color: COLORS.noPhi },
         { name: 'Học thử', value: statusCounts['Học thử'], color: COLORS.hocThu },
@@ -322,24 +322,24 @@ export const Dashboard: React.FC = () => {
         { name: 'Nghỉ học', value: statusCounts['Nghỉ học'], color: COLORS.nghiHoc },
         { name: 'HV mới', value: statusCounts['HV mới'], color: COLORS.hvMoi },
       ];
-      
+
       // Revenue calculation
       const paidContracts = contracts.filter(c => c.status === 'Paid' || c.status === 'Đã thanh toán');
       const debtContracts = contracts.filter(c => c.status === 'Debt' || c.status === 'Nợ phí');
-      
+
       const totalRevenue = paidContracts.reduce((sum, c) => sum + (c.finalTotal || c.totalAmount || 0), 0);
       const totalDebt = debtContracts.reduce((sum, c) => sum + (c.finalTotal || c.totalAmount || 0), 0);
-      
+
       // Calculate bad debt from students who dropped out with debt
       const badDebtStudentsList = students.filter((s: any) => s.badDebt === true);
       const totalBadDebt = badDebtStudentsList.reduce((sum: number, s: any) => sum + (s.badDebtAmount || 0), 0);
       const badDebtStudents = badDebtStudentsList.length;
-      
+
       // Fetch financial report data for pie chart
       try {
         const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
         const financialSummary = await getRevenueSummary(currentMonth);
-        
+
         if (financialSummary.revenueByCategory.length > 0) {
           setRevenuePieData(financialSummary.revenueByCategory.map(item => ({
             name: item.category,
@@ -354,21 +354,21 @@ export const Dashboard: React.FC = () => {
         console.error('Error fetching financial data:', err);
         setRevenuePieData([]);
       }
-      
+
       // Revenue comparison data from contracts
       const revenueData = totalRevenue > 0 ? [
         { month: 'Kỳ vọng', expected: totalRevenue * 1.2, actual: 0 },
         { month: 'Thực tế', expected: 0, actual: totalRevenue },
         { month: 'Chênh lệch', expected: 0, actual: totalRevenue * 0.2 },
       ] : [];
-      
+
       // Products are now loaded via useProducts() hook with realtime updates
       // No need to fetch here - see allProducts from useProducts()
-      
+
       // Fetch staff for birthday and salary - real data from Firebase
       const staffSnap = await getDocs(collection(db, 'staff'));
       const staffList = staffSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
+
       // Also get staff from staffSalaries if staff collection is empty
       let allStaff = staffList;
       if (staffList.length === 0) {
@@ -387,11 +387,11 @@ export const Dashboard: React.FC = () => {
         });
         allStaff = Array.from(uniqueStaff.values());
       }
-      
+
       const now = new Date();
       const thisMonth = now.getMonth();
       const thisYear = now.getFullYear();
-      
+
       // Get all birthdays in current month (for filter to work)
       // Check multiple possible field names
       const upcomingBirthdays = allStaff
@@ -415,9 +415,9 @@ export const Dashboard: React.FC = () => {
           };
         })
         .sort((a: any, b: any) => a.dayOfMonth - b.dayOfMonth);
-      
+
       console.log('Staff list:', allStaff.length, 'Birthdays this month:', upcomingBirthdays.length);
-      
+
       // Student birthdays - similar logic
       const studentBirthdays = students
         .filter((s: any) => {
@@ -440,34 +440,34 @@ export const Dashboard: React.FC = () => {
           };
         })
         .sort((a: any, b: any) => a.dayOfMonth - b.dayOfMonth);
-      
+
       console.log('Student birthdays this month:', studentBirthdays.length);
-      
+
       // Class stats from real data
       const classStats = classes.slice(0, 5).map((c: any) => ({
         name: c.name,
         count: c.currentStudents || 0,
       }));
-      
+
       // Fetch work sessions for real salary calculation
       const workSessionsSnap = await getDocs(collection(db, 'workSessions'));
       const workSessions = workSessionsSnap.docs.map(d => d.data());
       const confirmedSessions = workSessions.filter((ws: any) => ws.status === 'Đã xác nhận');
-      
+
       // Calculate salary by position from confirmed work sessions
       const salaryByPosition: { [key: string]: number } = {
         'Giáo viên Việt': 0,
         'Giáo viên Nước ngoài': 0,
         'Trợ giảng': 0,
       };
-      
+
       // Salary rates per session
       const salaryRates: { [key: string]: number } = {
         'Giáo viên Việt': 200000,
         'Giáo viên Nước ngoài': 400000,
         'Trợ giảng': 100000,
       };
-      
+
       confirmedSessions.forEach((ws: any) => {
         const pos = ws.position || 'Trợ giảng';
         const rate = salaryRates[pos] || 100000;
@@ -479,26 +479,41 @@ export const Dashboard: React.FC = () => {
           salaryByPosition['Trợ giảng'] += rate;
         }
       });
-      
-      const tongLuong = Object.values(salaryByPosition).reduce((a, b) => a + b, 0);
-      
+
+      // Calculate Office Staff Salary (Fixed Monthly)
+      let officeSalary = 0;
+      allStaff.forEach((s: any) => {
+        // Exclude teaching roles as they are paid by sessions
+        const isTeachingRole =
+          s.role === 'Giáo viên' ||
+          s.role === 'Trợ giảng' ||
+          (s.position && (s.position.includes('Giáo viên') || s.position.includes('Trợ giảng')));
+
+        if (!isTeachingRole && s.baseSalary) {
+          officeSalary += Number(s.baseSalary) || 0;
+        }
+      });
+
+      const tongLuong = Object.values(salaryByPosition).reduce((a, b) => a + b, 0) + officeSalary;
+
       const salaryForecast = [
         { position: 'Lương giáo viên Việt', amount: salaryByPosition['Giáo viên Việt'] },
         { position: 'Lương giáo viên NN', amount: salaryByPosition['Giáo viên Nước ngoài'] },
         { position: 'Lương trợ giảng', amount: salaryByPosition['Trợ giảng'] },
+        { position: 'Lương khối Văn phòng', amount: officeSalary },
         { position: 'Tổng', amount: tongLuong },
       ];
       const salaryPercent = totalRevenue > 0 ? Math.round((tongLuong / totalRevenue) * 100 * 100) / 100 : 0;
-      
+
       // Chỉ số sức khỏe doanh nghiệp - tính từ dữ liệu thực
       const activeStudents = students.filter((s: any) => s.status === 'Đang học').length;
       const debtStudents = students.filter((s: any) => s.hasDebt || s.status === 'Nợ phí').length;
       const droppedStudents = statusCounts['Nghỉ học'];
-      
+
       const tiLeTaiTuc = totalStudents > 0 ? Math.round((activeStudents / totalStudents) * 100) : 0;
       const tiLeNoPhi = totalStudents > 0 ? Math.round((debtStudents / totalStudents) * 100) : 0;
       const tiLeNghiHoc = totalStudents > 0 ? Math.round((droppedStudents / totalStudents) * 100) : 0;
-      
+
       // Tính điểm hài lòng từ feedback
       let diemHaiLong = 0;
       try {
@@ -510,9 +525,9 @@ export const Dashboard: React.FC = () => {
       } catch (err) {
         console.log('No feedback data');
       }
-      
+
       const tiSuatLoiNhuan = totalRevenue > 0 ? Math.round(((totalRevenue - tongLuong) / totalRevenue) * 100) : 0;
-      
+
       // Đánh giá nghịch: <10% Tốt, <20% Khá, <30% Trung Bình, <50% Yếu, >=50% Rất yếu
       const getStatusInverse = (value: number, hasData: boolean = true) => {
         if (!hasData) return 'Chưa có dữ liệu';
@@ -522,7 +537,7 @@ export const Dashboard: React.FC = () => {
         if (value < 50) return 'Yếu';
         return 'Rất yếu';
       };
-      
+
       // Đánh giá thuận: >80% Tốt, >60% Khá, >40% TB, >20% Yếu
       const getStatusNormal = (value: number, hasData: boolean = true) => {
         if (!hasData) return 'Chưa có dữ liệu';
@@ -532,11 +547,11 @@ export const Dashboard: React.FC = () => {
         if (value >= 20) return 'Yếu';
         return 'Rất yếu';
       };
-      
+
       const hasStudentData = totalStudents > 0;
       const hasFeedbackData = diemHaiLong > 0;
       const hasRevenueData = totalRevenue > 0;
-      
+
       const businessHealth = [
         { metric: 'Tỉ lệ tái tục', value: tiLeTaiTuc, status: getStatusNormal(tiLeTaiTuc, hasStudentData) },
         { metric: 'Tỉ lệ nợ phí', value: tiLeNoPhi, status: getStatusInverse(tiLeNoPhi, hasStudentData) },
@@ -544,16 +559,16 @@ export const Dashboard: React.FC = () => {
         { metric: 'Điểm số hài lòng', value: diemHaiLong, status: getStatusNormal(diemHaiLong, hasFeedbackData) },
         { metric: 'Tỉ suất lợi nhuận', value: tiSuatLoiNhuan, status: getStatusNormal(tiSuatLoiNhuan, hasRevenueData) },
       ];
-      
+
       setStats({
         totalStudents,
         totalClasses,
         avgPerClass: Number(avgPerClass),
         studentsByStatus,
         revenueData,
-        debtStats: { 
-          noPhi: Math.round(totalDebt * 0.6), 
-          noHocPhi: Math.round(totalDebt * 0.4) 
+        debtStats: {
+          noPhi: Math.round(totalDebt * 0.6),
+          noHocPhi: Math.round(totalDebt * 0.4)
         },
         totalRevenue,
         totalDebt,
@@ -567,7 +582,7 @@ export const Dashboard: React.FC = () => {
         studentBirthdays,
         classStats,
       });
-      
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       // Show empty data on error - no mock data
@@ -612,7 +627,7 @@ export const Dashboard: React.FC = () => {
   const getStudentsByCategory = (category: string): StudentData[] => {
     const now = new Date();
     const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-    
+
     switch (category) {
       case 'Nợ phí':
         return allStudents.filter(s => s.hasDebt || s.status === 'Nợ phí');
@@ -684,15 +699,15 @@ export const Dashboard: React.FC = () => {
             <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
               <defs>
                 <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5"/>
+                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5" />
                 </pattern>
               </defs>
-              <rect width="100%" height="100%" fill="url(#grid)"/>
+              <rect width="100%" height="100%" fill="url(#grid)" />
             </svg>
           </div>
           {/* Animated shimmer */}
           <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 animate-shimmer"></div>
-          
+
           {/* Content */}
           <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             {/* Left: Welcome & Branch */}
@@ -717,7 +732,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Right: Stats Cards */}
             <div className="flex flex-wrap gap-4">
               {/* Students Card */}
@@ -732,7 +747,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Classes Card */}
               <div className="group relative bg-white/10 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-default">
                 <div className="flex items-center gap-4">
@@ -745,7 +760,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Average Card */}
               <div className="group relative bg-white/10 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-default">
                 <div className="flex items-center gap-4">
@@ -790,13 +805,13 @@ export const Dashboard: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        background: 'rgba(255,255,255,0.95)', 
-                        border: 'none', 
-                        borderRadius: '12px', 
-                        boxShadow: '0 10px 40px rgba(0,0,0,0.1)' 
-                      }} 
+                    <Tooltip
+                      contentStyle={{
+                        background: 'rgba(255,255,255,0.95)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+                      }}
                     />
                     <Bar dataKey="value" radius={[8, 8, 0, 0]} onClick={handleBarClick} className="cursor-pointer">
                       {stats.studentsByStatus.map((entry, index) => (
@@ -843,14 +858,14 @@ export const Dashboard: React.FC = () => {
                 <>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart 
+                      <BarChart
                         data={stats.revenueData.map(r => ({ name: r.month, value: r.expected || r.actual }))}
                         margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                         <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={(v) => `${(v/1000000).toFixed(0)}tr`} axisLine={false} tickLine={false} />
-                        <Tooltip 
+                        <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}tr`} axisLine={false} tickLine={false} />
+                        <Tooltip
                           formatter={(value: number) => formatCurrency(value)}
                           contentStyle={{ background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
                         />
@@ -922,11 +937,11 @@ export const Dashboard: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
                       contentStyle={{ background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
                     />
-                    <Legend 
+                    <Legend
                       wrapperStyle={{ paddingTop: '20px' }}
                       formatter={(value) => <span className="text-gray-600 text-sm">{value}</span>}
                     />
@@ -969,7 +984,7 @@ export const Dashboard: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
                       contentStyle={{ background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
                     />
@@ -1060,20 +1075,18 @@ export const Dashboard: React.FC = () => {
                       <tr key={idx} className="border-b border-gray-100 hover:bg-slate-50/50 transition-colors">
                         <td className="py-2.5 text-gray-700">{item.metric}</td>
                         <td className="py-2.5 text-center font-medium">{item.value}%</td>
-                        <td className={`py-2.5 text-right font-semibold ${
-                          item.status === 'Tốt' ? 'text-emerald-600' : 
-                          item.status === 'Khá' ? 'text-blue-600' :
-                          item.status === 'Trung Bình' ? 'text-amber-500' : 
-                          item.status === 'Yếu' ? 'text-rose-500' : 
-                          item.status === 'Chưa có dữ liệu' ? 'text-gray-500' : 'text-rose-600'
-                        }`}>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            item.status === 'Tốt' ? 'bg-emerald-100' : 
-                            item.status === 'Khá' ? 'bg-blue-100' :
-                            item.status === 'Trung Bình' ? 'bg-amber-100' : 
-                            item.status === 'Yếu' ? 'bg-rose-100' : 
-                            item.status === 'Chưa có dữ liệu' ? 'bg-gray-100' : 'bg-rose-200'
-                          }`}>{item.status}</span>
+                        <td className={`py-2.5 text-right font-semibold ${item.status === 'Tốt' ? 'text-emerald-600' :
+                            item.status === 'Khá' ? 'text-blue-600' :
+                              item.status === 'Trung Bình' ? 'text-amber-500' :
+                                item.status === 'Yếu' ? 'text-rose-500' :
+                                  item.status === 'Chưa có dữ liệu' ? 'text-gray-500' : 'text-rose-600'
+                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs ${item.status === 'Tốt' ? 'bg-emerald-100' :
+                              item.status === 'Khá' ? 'bg-blue-100' :
+                                item.status === 'Trung Bình' ? 'bg-amber-100' :
+                                  item.status === 'Yếu' ? 'bg-rose-100' :
+                                    item.status === 'Chưa có dữ liệu' ? 'bg-gray-100' : 'bg-rose-200'
+                            }`}>{item.status}</span>
                         </td>
                       </tr>
                     ))}
@@ -1113,10 +1126,10 @@ export const Dashboard: React.FC = () => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filteredProducts = stockFilter === 'low' 
+                      const filteredProducts = stockFilter === 'low'
                         ? allProducts.filter(p => p.stock < (p.minStock || 10))
                         : allProducts;
-                      
+
                       return filteredProducts.length > 0 ? (
                         filteredProducts.map((item, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-amber-50/30 transition-colors">
@@ -1160,7 +1173,7 @@ export const Dashboard: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3 text-sm mb-4 p-4 bg-teal-50/50 rounded-xl border border-teal-100">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Xem theo tháng</span>
-                    <select 
+                    <select
                       value={`${statsMonth}-${statsYear}`}
                       onChange={(e) => {
                         const [m, y] = e.target.value.split('-').map(Number);
@@ -1181,7 +1194,7 @@ export const Dashboard: React.FC = () => {
                   <div></div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Hạng mục thống kê</span>
-                    <select 
+                    <select
                       value={statsCategory}
                       onChange={(e) => setStatsCategory(e.target.value)}
                       className="text-teal-600 font-semibold bg-transparent border-none text-right cursor-pointer focus:outline-none"
@@ -1194,7 +1207,7 @@ export const Dashboard: React.FC = () => {
                   <div></div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Kiểu xem</span>
-                    <select 
+                    <select
                       value={statsSortOrder}
                       onChange={(e) => setStatsSortOrder(e.target.value)}
                       className="text-teal-600 font-semibold bg-transparent border-none text-right cursor-pointer focus:outline-none"
@@ -1206,7 +1219,7 @@ export const Dashboard: React.FC = () => {
                   <div></div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Hiển thị</span>
-                    <select 
+                    <select
                       value={statsLimit}
                       onChange={(e) => setStatsLimit(Number(e.target.value))}
                       className="text-teal-600 font-semibold bg-transparent border-none text-right cursor-pointer focus:outline-none"
@@ -1229,11 +1242,11 @@ export const Dashboard: React.FC = () => {
                   <tbody>
                     {(() => {
                       const sortedData = [...salaryReportData]
-                        .sort((a, b) => statsSortOrder === 'asc' 
-                          ? a.estimatedSalary - b.estimatedSalary 
+                        .sort((a, b) => statsSortOrder === 'asc'
+                          ? a.estimatedSalary - b.estimatedSalary
                           : b.estimatedSalary - a.estimatedSalary)
                         .slice(0, statsLimit);
-                      
+
                       return sortedData.length > 0 ? (
                         sortedData.map((item, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-teal-50/30 transition-colors">
@@ -1315,21 +1328,19 @@ export const Dashboard: React.FC = () => {
                 <div className="flex justify-center gap-2">
                   <button
                     onClick={() => setBirthdayType('staff')}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${
-                      birthdayType === 'staff' 
-                        ? 'bg-white text-[#FF6B5A] shadow-md' 
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${birthdayType === 'staff'
+                        ? 'bg-white text-[#FF6B5A] shadow-md'
                         : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+                      }`}
                   >
                     Nhân sự
                   </button>
                   <button
                     onClick={() => setBirthdayType('student')}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${
-                      birthdayType === 'student' 
-                        ? 'bg-white text-[#FF6B5A] shadow-md' 
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${birthdayType === 'student'
+                        ? 'bg-white text-[#FF6B5A] shadow-md'
                         : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+                      }`}
                   >
                     Học sinh
                   </button>
@@ -1383,7 +1394,7 @@ export const Dashboard: React.FC = () => {
                       const today = now.getDate();
                       const thisMonth = now.getMonth();
                       const thisYear = now.getFullYear();
-                      
+
                       const birthdayData = birthdayType === 'staff' ? stats.upcomingBirthdays : stats.studentBirthdays;
 
                       const filteredBirthdays = birthdayData.filter((item: any) => {
@@ -1404,7 +1415,7 @@ export const Dashboard: React.FC = () => {
                           return month === thisMonth + 1;
                         }
                       });
-                      
+
                       return filteredBirthdays.length > 0 ? (
                         filteredBirthdays.map((item: any, idx: number) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-orange-50/30 transition-colors">
@@ -1415,11 +1426,10 @@ export const Dashboard: React.FC = () => {
                                 <td className="py-2.5 px-2 text-center">
                                   <button
                                     onClick={() => toggleGiftStatus(item.id, item.name, 'giftPrepared')}
-                                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                                      birthdayGifts[item.id]?.giftPrepared
+                                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${birthdayGifts[item.id]?.giftPrepared
                                         ? 'bg-emerald-500 border-emerald-500 text-white'
                                         : 'border-gray-300 hover:border-emerald-400'
-                                    }`}
+                                      }`}
                                     title="Đã chuẩn bị quà"
                                   >
                                     {birthdayGifts[item.id]?.giftPrepared && <Gift size={14} />}
@@ -1428,11 +1438,10 @@ export const Dashboard: React.FC = () => {
                                 <td className="py-2.5 px-2 text-center">
                                   <button
                                     onClick={() => toggleGiftStatus(item.id, item.name, 'giftGiven')}
-                                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                                      birthdayGifts[item.id]?.giftGiven
+                                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${birthdayGifts[item.id]?.giftGiven
                                         ? 'bg-[#FF6B5A] border-[#FF6B5A] text-white'
                                         : 'border-gray-300 hover:border-[#FF6B5A]'
-                                    }`}
+                                      }`}
                                     title="Đã tặng quà"
                                   >
                                     {birthdayGifts[item.id]?.giftGiven && <Heart size={14} />}
@@ -1494,7 +1503,7 @@ export const Dashboard: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             {/* Content */}
             <div className="p-4 overflow-y-auto max-h-[60vh]">
               {filteredStudents.length === 0 ? (
@@ -1540,13 +1549,12 @@ export const Dashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="p-2">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              student.hasDebt ? 'bg-red-100 text-red-700' :
-                              student.status === 'Trial' || student.status === 'Học thử' ? 'bg-orange-100 text-orange-700' :
-                              student.status === 'Reserved' || student.status === 'Bảo lưu' ? 'bg-yellow-100 text-yellow-700' :
-                              student.status === 'Dropped' || student.status === 'Nghỉ học' ? 'bg-gray-100 text-gray-700' :
-                              'bg-green-100 text-green-700'
-                            }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs ${student.hasDebt ? 'bg-red-100 text-red-700' :
+                                student.status === 'Trial' || student.status === 'Học thử' ? 'bg-orange-100 text-orange-700' :
+                                  student.status === 'Reserved' || student.status === 'Bảo lưu' ? 'bg-yellow-100 text-yellow-700' :
+                                    student.status === 'Dropped' || student.status === 'Nghỉ học' ? 'bg-gray-100 text-gray-700' :
+                                      'bg-green-100 text-green-700'
+                              }`}>
                               {student.status || (student.hasDebt ? 'Nợ phí' : 'HV mới')}
                             </span>
                           </td>
@@ -1557,7 +1565,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               )}
             </div>
-            
+
             {/* Footer */}
             <div className="p-4 border-t bg-gray-50 flex justify-end">
               <button

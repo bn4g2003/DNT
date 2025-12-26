@@ -191,7 +191,8 @@ export interface Staff {
 
   // Thông tin lương
   salaryGrade?: number; // Bậc lương (1-8)
-  baseSalary?: number; // Lương cơ bản
+  salaryCoefficient?: number; // Hệ số lương
+  baseSalary?: number; // Lương thực nhận (đã tính toán)
   allowance?: number; // Phụ cấp
 
   // Thông tin hợp đồng hiện tại

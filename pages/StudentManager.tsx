@@ -33,9 +33,9 @@ interface StudentManagerProps {
   title?: string;
 }
 
-export const StudentManager: React.FC<StudentManagerProps> = ({ 
-  initialStatusFilter, 
-  title = "Danh sách học viên" 
+export const StudentManager: React.FC<StudentManagerProps> = ({
+  initialStatusFilter,
+  title = "Danh sách học viên"
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -61,7 +61,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
   const [showRemoveClassModal, setShowRemoveClassModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [actionDropdownId, setActionDropdownId] = useState<string | null>(null);
-  
+
   // Post-creation modal state
   const [showPostCreateModal, setShowPostCreateModal] = useState(false);
   const [newlyCreatedStudent, setNewlyCreatedStudent] = useState<Student | null>(null);
@@ -84,7 +84,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
   // Calculate student standard based on performance
   const calculateStandard = (attendanceRate: number, homeworkRate: number, avgTestScore: number): 'Tốt' | 'Khá' | 'Ưu tiên' | 'Chưa đủ dữ liệu' => {
     const avgRate = (attendanceRate + homeworkRate) / 2;
-    
+
     // Tốt: (tỷ lệ đi học + tỷ lệ làm btvn)/2 > 80% và Điểm Test TB >= 6
     if (avgRate > 80 && avgTestScore >= 6) {
       return 'Tốt';
@@ -122,10 +122,10 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
   // Fetch ALL students from Firebase (no server-side status filter to handle legacy status values like "Đã nghỉ")
   const { students: allStudents, loading, error, createStudent, updateStudent, deleteStudent } = useStudents();
-  
+
   // Fetch parents for dropdown
   const { parents } = useParents();
-  
+
   // Fetch classes for dropdown
   const { classes } = useClasses({});
 
@@ -177,23 +177,23 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
   useEffect(() => {
     const fetchStudentPerformance = async () => {
       if (students.length === 0) return;
-      
+
       try {
         // Fetch all student attendance records
         const attendanceSnap = await getDocs(collection(db, 'studentAttendance'));
         const attendanceRecords = attendanceSnap.docs.map(d => d.data());
-        
+
         const performanceMap: Record<string, {
           attendanceRate: number;
           homeworkRate: number;
           avgTestScore: number;
           standard: 'Tốt' | 'Khá' | 'Ưu tiên' | 'Chưa đủ dữ liệu';
         }> = {};
-        
+
         students.forEach(student => {
           // Get attendance records for this student
           const studentRecords = attendanceRecords.filter((r: any) => r.studentId === student.id);
-          
+
           if (studentRecords.length === 0) {
             performanceMap[student.id] = {
               attendanceRate: 0,
@@ -203,25 +203,25 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
             };
             return;
           }
-          
+
           // Calculate attendance rate (present / total sessions)
-          const presentCount = studentRecords.filter((r: any) => 
+          const presentCount = studentRecords.filter((r: any) =>
             r.status === 'Đúng giờ' || r.status === 'Trễ giờ' || r.punctuality === 'onTime' || r.punctuality === 'late'
           ).length;
           const attendanceRate = (presentCount / studentRecords.length) * 100;
-          
+
           // Calculate homework rate
           const homeworkRecords = studentRecords.filter((r: any) => r.homeworkCompletion !== undefined && r.homeworkCompletion !== null);
-          const homeworkRate = homeworkRecords.length > 0 
+          const homeworkRate = homeworkRecords.length > 0
             ? homeworkRecords.reduce((sum: number, r: any) => sum + (r.homeworkCompletion || 0), 0) / homeworkRecords.length
             : 0;
-          
+
           // Calculate average test score
           const testRecords = studentRecords.filter((r: any) => r.score !== undefined && r.score !== null);
           const avgTestScore = testRecords.length > 0
             ? testRecords.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / testRecords.length
             : 0;
-          
+
           performanceMap[student.id] = {
             attendanceRate,
             homeworkRate,
@@ -229,13 +229,13 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
             standard: calculateStandard(attendanceRate, homeworkRate, avgTestScore)
           };
         });
-        
+
         setStudentPerformance(performanceMap);
       } catch (err) {
         console.error('Error fetching student performance:', err);
       }
     };
-    
+
     fetchStudentPerformance();
   }, [students]);
 
@@ -247,18 +247,18 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         const normalizedStatus = normalizeStudentStatus(student.status);
         matchesStatus = normalizedStatus === filterStatus;
       }
-      
+
       // Filter by search term
       let matchesSearch = true;
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
-        matchesSearch = 
+        matchesSearch =
           student.fullName?.toLowerCase().includes(search) ||
           student.code?.toLowerCase().includes(search) ||
           student.phone?.includes(search) ||
           student.parentName?.toLowerCase().includes(search);
       }
-      
+
       // Filter by birthday month
       let matchesBirthday = true;
       if (birthdayMonth) {
@@ -274,17 +274,17 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         // Tìm class được chọn để lấy tên
         const selectedClass = classes.find(c => c.id === filterClass);
         const selectedClassName = selectedClass?.name || '';
-        
+
         // Normalize để so sánh linh hoạt (bỏ HẾT khoảng trắng, lowercase)
         // VD: "Pre Starters 26" → "prestarters26" = "Prestarters 26" → "prestarters26"
         const normalize = (s: string) => s?.toLowerCase().replace(/\s+/g, '').trim() || '';
         const studentClassName = normalize(student.class || '');
         const targetClassName = normalize(selectedClassName);
-        
+
         // So sánh theo classId HOẶC class name (cho data import từ Excel)
-        matchesClass = student.classId === filterClass || 
-                       studentClassName === targetClassName ||
-                       (student.classIds && student.classIds.includes(filterClass));
+        matchesClass = student.classId === filterClass ||
+          studentClassName === targetClassName ||
+          (student.classIds && student.classIds.includes(filterClass));
       }
 
       // Filter by branch
@@ -292,7 +292,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
       if (filterBranch !== 'ALL') {
         matchesBranch = student.branch === filterBranch;
       }
-      
+
       return matchesStatus && matchesSearch && matchesBirthday && matchesClass && matchesBranch;
     });
   }, [students, filterStatus, searchTerm, birthdayMonth, filterClass, filterBranch, classes]);
@@ -304,7 +304,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
   // Get active classes for assignment
   const activeClasses = useMemo(() => {
-    return classes.filter(c => 
+    return classes.filter(c =>
       c.status === 'Đang học' || c.status === 'Chờ mở' || c.status === 'Active' || c.status === 'Pending'
     );
   }, [classes]);
@@ -325,7 +325,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
     setAssigningClasses(true);
     let assigned = 0;
-    
+
     for (const student of studentsWithoutClass) {
       const randomClass = activeClasses[Math.floor(Math.random() * activeClasses.length)];
       try {
@@ -345,7 +345,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
   const getStatusColor = (status: string) => {
     const normalizedStatus = normalizeStudentStatus(status);
-    switch(normalizedStatus) {
+    switch (normalizedStatus) {
       case StudentStatus.ACTIVE: return 'text-green-600 bg-green-50 ring-green-500/10';
       case StudentStatus.DEBT: return 'text-red-600 bg-red-50 ring-red-500/10';
       case StudentStatus.RESERVED: return 'text-yellow-600 bg-yellow-50 ring-yellow-500/10';
@@ -376,7 +376,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
       alert('Không thể tạo học viên. Vui lòng thử lại.');
     }
   };
-  
+
   const handlePostCreateEnroll = () => {
     if (newlyCreatedStudent) {
       setActionStudent(newlyCreatedStudent);
@@ -384,7 +384,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
       setShowEnrollmentModal(true);
     }
   };
-  
+
   const handlePostCreateContract = () => {
     if (newlyCreatedStudent) {
       setShowPostCreateModal(false);
@@ -430,7 +430,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
   const handleDeleteStudent = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa học viên này?')) return;
-    
+
     try {
       await deleteStudent(id);
       if (selectedStudent?.id === id) {
@@ -449,14 +449,14 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
       alert('Không có học viên nào để xóa.');
       return;
     }
-    
+
     const confirmMsg = `Bạn có chắc chắn muốn xóa ${filteredStudents.length} học viên đang hiển thị?\n\nThao tác này KHÔNG THỂ hoàn tác!`;
     if (!confirm(confirmMsg)) return;
-    
+
     setBulkDeleting(true);
     let deleted = 0;
     let failed = 0;
-    
+
     for (const student of filteredStudents) {
       try {
         await deleteStudent(student.id);
@@ -466,7 +466,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         failed++;
       }
     }
-    
+
     setBulkDeleting(false);
     setSelectedStudent(null);
     alert(`Đã xóa ${deleted} học viên.${failed > 0 ? ` Lỗi: ${failed}` : ''}`);
@@ -486,8 +486,8 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         }
 
         // Parse remainingSessions (có thể âm = nợ phí)
-        const remainingSessions = typeof row.remainingSessions === 'number' 
-          ? row.remainingSessions 
+        const remainingSessions = typeof row.remainingSessions === 'number'
+          ? row.remainingSessions
           : parseInt(row.remainingSessions) || 0;
 
         // Auto-set status = 'Nợ phí' nếu số buổi còn lại < 0
@@ -501,10 +501,10 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         const normalizeClassName = (s: string) => s?.toLowerCase().replace(/\s+/g, '').trim() || '';
         const inputClassName = normalizeClassName(row.class || '');
         let matchedClass = classes.find(c => normalizeClassName(c.name) === inputClassName);
-        
+
         // Nếu không exact match, thử partial match
         if (!matchedClass && inputClassName) {
-          matchedClass = classes.find(c => 
+          matchedClass = classes.find(c =>
             normalizeClassName(c.name).includes(inputClassName) ||
             inputClassName.includes(normalizeClassName(c.name))
           );
@@ -540,39 +540,52 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      {/* Status Tabs */}
+      <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-2">
+        {[
+          { id: 'ALL', label: 'Tất cả' },
+          { id: StudentStatus.ACTIVE, label: 'Đang học' },
+          { id: StudentStatus.TRIAL, label: 'Học thử' },
+          { id: StudentStatus.RESERVED, label: 'Bảo lưu' },
+          { id: StudentStatus.DROPPED, label: 'Đã nghỉ' },
+          { id: StudentStatus.DEBT, label: 'Nợ phí' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterStatus(tab.id as any)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterStatus === tab.id
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-lg font-bold text-gray-800 hidden lg:block">{title}</h2>
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <div className="relative flex-1 lg:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Tìm tên, mã, SĐT..." 
+            <input
+              type="text"
+              placeholder="Tìm tên, mã, SĐT..."
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
-          <select 
-            className="pl-2 pr-8 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as StudentStatus | 'ALL')}
-            disabled={!!initialStatusFilter}
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            {Object.values(StudentStatus).map(s => (
-                <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          
+
+
+
           <select
             className="pl-2 pr-8 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
             value={birthdayMonth}
             onChange={(e) => setBirthdayMonth(e.target.value)}
           >
             <option value="">Tháng sinh</option>
-            {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
               <option key={m} value={m}>Tháng {m}</option>
             ))}
           </select>
@@ -613,18 +626,18 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
           {/* Nút xóa hàng loạt - chỉ hiện khi có filter và có quyền */}
           {canCreateStudent && filterClass !== 'ALL' && filteredStudents.length > 0 && (
-            <button 
+            <button
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
               className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50"
             >
-              <Trash2 size={16} /> 
+              <Trash2 size={16} />
               {bulkDeleting ? 'Đang xóa...' : `Xóa ${filteredStudents.length} HV`}
             </button>
           )}
 
           {canCreateStudent && (
-            <button 
+            <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
             >
@@ -666,21 +679,21 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
         <div className={`${selectedStudent ? 'lg:col-span-2' : 'lg:col-span-1'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
-                <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500 sticky top-0 z-10">
+              <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500 sticky top-0 z-10">
                 <tr>
-                    <th className="px-4 py-3 bg-gray-50 w-12">No.</th>
-                    <th className="px-4 py-3 bg-gray-50">Học viên</th>
-                    <th className="px-4 py-3 bg-gray-50">Phụ huynh</th>
-                    <th className="px-4 py-3 bg-gray-50">Lớp học</th>
-                    <th className="px-4 py-3 bg-gray-50 text-center">Gói học</th>
-                    <th className="px-4 py-3 bg-gray-50 text-center">Đã học</th>
-                    <th className="px-4 py-3 bg-gray-50 text-center">Còn lại</th>
-                    <th className="px-4 py-3 bg-gray-50 text-center">Tiêu chuẩn</th>
-                    <th className="px-4 py-3 bg-gray-50">Trạng thái</th>
-                    <th className="px-4 py-3 bg-gray-50"></th>
+                  <th className="px-4 py-3 bg-gray-50 w-12">No.</th>
+                  <th className="px-4 py-3 bg-gray-50">Học viên</th>
+                  <th className="px-4 py-3 bg-gray-50">Phụ huynh</th>
+                  <th className="px-4 py-3 bg-gray-50">Lớp học</th>
+                  <th className="px-4 py-3 bg-gray-50 text-center">Gói học</th>
+                  <th className="px-4 py-3 bg-gray-50 text-center">Đã học</th>
+                  <th className="px-4 py-3 bg-gray-50 text-center">Còn lại</th>
+                  <th className="px-4 py-3 bg-gray-50 text-center">Tiêu chuẩn</th>
+                  <th className="px-4 py-3 bg-gray-50">Trạng thái</th>
+                  <th className="px-4 py-3 bg-gray-50"></th>
                 </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
+              </thead>
+              <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
                     <td colSpan={10} className="text-center py-10 text-gray-500">
@@ -697,211 +710,210 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
                     </td>
                   </tr>
                 ) : filteredStudents.length > 0 ? filteredStudents.map((student, index) => (
-                    <tr 
-                    key={student.id} 
+                  <tr
+                    key={student.id}
                     className={`hover:bg-indigo-50 cursor-pointer transition-colors ${selectedStudent?.id === student.id ? 'bg-indigo-50' : ''}`}
                     onClick={() => setSelectedStudent(selectedStudent?.id === student.id ? null : student)}
-                    >
+                  >
                     <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                     <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                           <span className="font-bold text-gray-800 text-[15px]">{student.fullName}</span>
-                           <span className="text-sm font-bold text-red-500 font-handwriting">{formatDob(student.dob)}</span>
-                        </div>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800 text-[15px]">{student.fullName}</span>
+                        <span className="text-sm font-bold text-red-500 font-handwriting">{formatDob(student.dob)}</span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs">
-                        <p className="font-bold text-green-700">{student.parentName || '---'}</p>
-                        {!hideParentPhone && (
-                          <p className="text-gray-500 flex items-center gap-1">
-                            <Phone size={10} /> {student.parentPhone || student.phone || '---'}
-                          </p>
-                        )}
+                      <p className="font-bold text-green-700">{student.parentName || '---'}</p>
+                      {!hideParentPhone && (
+                        <p className="text-gray-500 flex items-center gap-1">
+                          <Phone size={10} /> {student.parentPhone || student.phone || '---'}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">
-                       <p>{student.class || '---'}</p>
+                      <p>{student.class || '---'}</p>
                     </td>
                     <td className="px-4 py-3 text-center">
-                       <span className="font-semibold text-blue-600">{student.registeredSessions || 0}</span>
+                      <span className="font-semibold text-blue-600">{student.registeredSessions || 0}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                       <span className="font-semibold text-green-600">{student.attendedSessions || 0}</span>
+                      <span className="font-semibold text-green-600">{student.attendedSessions || 0}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                       {(() => {
-                         const remaining = student.remainingSessions ?? ((student.registeredSessions || 0) - (student.attendedSessions || 0));
-                         return (
-                           <span className={`font-bold ${remaining < 0 ? 'text-red-600' : remaining <= 5 ? 'text-orange-500' : 'text-gray-700'}`}>
-                             {remaining}
-                             {remaining < 0 && <span className="text-xs ml-1">(nợ)</span>}
-                           </span>
-                         );
-                       })()}
+                      {(() => {
+                        const remaining = student.remainingSessions ?? ((student.registeredSessions || 0) - (student.attendedSessions || 0));
+                        return (
+                          <span className={`font-bold ${remaining < 0 ? 'text-red-600' : remaining <= 5 ? 'text-orange-500' : 'text-gray-700'}`}>
+                            {remaining}
+                            {remaining < 0 && <span className="text-xs ml-1">(nợ)</span>}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-center">
-                       {(() => {
-                         const perf = studentPerformance[student.id];
-                         if (!perf) return <span className="text-xs text-gray-400">---</span>;
-                         return (
-                           <div className="flex flex-col items-center gap-0.5">
-                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${getStandardColor(perf.standard)}`}>
-                               <Award size={10} />
-                               {perf.standard}
-                             </span>
-                             <span className="text-[10px] text-gray-400" title={`Đi học: ${perf.attendanceRate.toFixed(0)}%, BTVN: ${perf.homeworkRate.toFixed(0)}%, Điểm TB: ${perf.avgTestScore.toFixed(1)}`}>
-                               {perf.attendanceRate.toFixed(0)}% | {perf.homeworkRate.toFixed(0)}% | {perf.avgTestScore.toFixed(1)}
-                             </span>
-                           </div>
-                         );
-                       })()}
+                      {(() => {
+                        const perf = studentPerformance[student.id];
+                        if (!perf) return <span className="text-xs text-gray-400">---</span>;
+                        return (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${getStandardColor(perf.standard)}`}>
+                              <Award size={10} />
+                              {perf.standard}
+                            </span>
+                            <span className="text-[10px] text-gray-400" title={`Đi học: ${perf.attendanceRate.toFixed(0)}%, BTVN: ${perf.homeworkRate.toFixed(0)}%, Điểm TB: ${perf.avgTestScore.toFixed(1)}`}>
+                              {perf.attendanceRate.toFixed(0)}% | {perf.homeworkRate.toFixed(0)}% | {perf.avgTestScore.toFixed(1)}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${
-                            normalizeStudentStatus(student.status) === StudentStatus.ACTIVE ? 'bg-green-500' : 
-                            normalizeStudentStatus(student.status) === StudentStatus.DEBT ? 'bg-red-500' :
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${normalizeStudentStatus(student.status) === StudentStatus.ACTIVE ? 'bg-green-500' :
+                          normalizeStudentStatus(student.status) === StudentStatus.DEBT ? 'bg-red-500' :
                             normalizeStudentStatus(student.status) === StudentStatus.RESERVED ? 'bg-yellow-500' :
-                            normalizeStudentStatus(student.status) === StudentStatus.DROPPED ? 'bg-gray-500' :
-                            normalizeStudentStatus(student.status) === StudentStatus.TRIAL ? 'bg-purple-500' :
-                            normalizeStudentStatus(student.status) === StudentStatus.EXPIRED_FEE ? 'bg-orange-500' : 'bg-gray-400'
+                              normalizeStudentStatus(student.status) === StudentStatus.DROPPED ? 'bg-gray-500' :
+                                normalizeStudentStatus(student.status) === StudentStatus.TRIAL ? 'bg-purple-500' :
+                                  normalizeStudentStatus(student.status) === StudentStatus.EXPIRED_FEE ? 'bg-orange-500' : 'bg-gray-400'
                         }`}>
-                            {normalizeStudentStatus(student.status)}
-                        </span>
+                        {normalizeStudentStatus(student.status)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 justify-end relative">
-                          {canEditStudent && (
-                            <button 
-                               onClick={(e) => { 
-                                 e.stopPropagation(); 
-                                 setEditingStudent(student);
-                                 setShowEditModal(true);
-                               }}
-                               className="text-gray-400 hover:text-indigo-600 p-1"
-                               title="Chỉnh sửa"
-                            >
-                               <Edit size={16} />
-                            </button>
-                          )}
-                          {canDeleteStudent && (
-                            <button 
-                               onClick={(e) => { 
-                                 e.stopPropagation(); 
-                                 handleDeleteStudent(student.id);
-                               }}
-                               className="text-gray-400 hover:text-red-600 p-1"
-                               title="Xóa"
-                            >
-                               <Trash2 size={16} />
-                            </button>
-                          )}
-                          <button 
-                             onClick={(e) => { e.stopPropagation(); navigate(`/admin/customers/student-detail/${student.id}`); }}
-                             className="text-gray-400 hover:text-indigo-600 p-1"
-                             title="Chi tiết"
+                      <div className="flex items-center gap-1 justify-end relative">
+                        {canEditStudent && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingStudent(student);
+                              setShowEditModal(true);
+                            }}
+                            className="text-gray-400 hover:text-indigo-600 p-1"
+                            title="Chỉnh sửa"
                           >
-                             <ArrowRight size={18} />
+                            <Edit size={16} />
                           </button>
-                          {/* Action Dropdown */}
-                          {canEditStudent && (
-                            <div className="relative">
-                              <button 
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  setActionDropdownId(actionDropdownId === student.id ? null : student.id);
-                                }}
-                                className="text-gray-400 hover:text-indigo-600 p-1"
-                                title="Thao tác"
-                              >
-                                <ChevronDown size={16} />
-                              </button>
-                              {actionDropdownId === student.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowEnrollmentModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <PlusCircle size={14} className="text-blue-500" />
-                                    Thêm/Bớt buổi
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowTransferSessionModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <Gift size={14} className="text-green-500" />
-                                    Tặng buổi cho HV khác
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowTransferClassModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <RefreshCw size={14} className="text-indigo-500" />
-                                    Chuyển lớp
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowReserveModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <Pause size={14} className="text-orange-500" />
-                                    Bảo lưu
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowPasswordModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-indigo-600"
-                                  >
-                                    <Lock size={14} />
-                                    Đặt mật khẩu
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActionStudent(student);
-                                      setShowRemoveClassModal(true);
-                                      setActionDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
-                                  >
-                                    <UserMinus size={14} />
-                                    Xóa khỏi lớp
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        )}
+                        {canDeleteStudent && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStudent(student.id);
+                            }}
+                            className="text-gray-400 hover:text-red-600 p-1"
+                            title="Xóa"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/admin/customers/student-detail/${student.id}`); }}
+                          className="text-gray-400 hover:text-indigo-600 p-1"
+                          title="Chi tiết"
+                        >
+                          <ArrowRight size={18} />
+                        </button>
+                        {/* Action Dropdown */}
+                        {canEditStudent && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionDropdownId(actionDropdownId === student.id ? null : student.id);
+                              }}
+                              className="text-gray-400 hover:text-indigo-600 p-1"
+                              title="Thao tác"
+                            >
+                              <ChevronDown size={16} />
+                            </button>
+                            {actionDropdownId === student.id && (
+                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowEnrollmentModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <PlusCircle size={14} className="text-blue-500" />
+                                  Thêm/Bớt buổi
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowTransferSessionModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <Gift size={14} className="text-green-500" />
+                                  Tặng buổi cho HV khác
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowTransferClassModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <RefreshCw size={14} className="text-indigo-500" />
+                                  Chuyển lớp
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowReserveModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <Pause size={14} className="text-orange-500" />
+                                  Bảo lưu
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowPasswordModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-indigo-600"
+                                >
+                                  <Lock size={14} />
+                                  Đặt mật khẩu
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionStudent(student);
+                                    setShowRemoveClassModal(true);
+                                    setActionDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                                >
+                                  <UserMinus size={14} />
+                                  Xóa khỏi lớp
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    </tr>
+                  </tr>
                 )) : (
-                    <tr>
-                        <td colSpan={11} className="text-center py-10 text-gray-500">
-                            Không tìm thấy học viên nào.
-                        </td>
-                    </tr>
+                  <tr>
+                    <td colSpan={11} className="text-center py-10 text-gray-500">
+                      Không tìm thấy học viên nào.
+                    </td>
+                  </tr>
                 )}
-                </tbody>
+              </tbody>
             </table>
           </div>
         </div>
@@ -911,96 +923,94 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
           {selectedStudent ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="p-6 border-b border-gray-100 bg-teal-50/30">
-                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-gray-900 text-lg">Thông tin học viên</h3>
-                    <button className="text-gray-400 hover:text-gray-600"><MoreHorizontal size={18} /></button>
-                 </div>
-                 
-                 <div className="mb-4">
-                    <h4 className="text-xl font-bold text-teal-700 mb-1">{selectedStudent.fullName}</h4>
-                    <p className="text-sm text-gray-500">{selectedStudent.code} | {selectedStudent.class}</p>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="p-2 bg-white rounded border border-gray-100">
-                        <p className="text-xs text-gray-400">Ngày sinh</p>
-                        <p className="font-medium text-gray-800">{formatDob(selectedStudent.dob)}</p>
-                    </div>
-                    <div className="p-2 bg-white rounded border border-gray-100">
-                        <p className="text-xs text-gray-400">Trạng thái</p>
-                        <p className="font-medium text-blue-600">{normalizeStudentStatus(selectedStudent.status)}</p>
-                    </div>
-                 </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 text-lg">Thông tin học viên</h3>
+                  <button className="text-gray-400 hover:text-gray-600"><MoreHorizontal size={18} /></button>
+                </div>
+
+                <div className="mb-4">
+                  <h4 className="text-xl font-bold text-teal-700 mb-1">{selectedStudent.fullName}</h4>
+                  <p className="text-sm text-gray-500">{selectedStudent.code} | {selectedStudent.class}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="p-2 bg-white rounded border border-gray-100">
+                    <p className="text-xs text-gray-400">Ngày sinh</p>
+                    <p className="font-medium text-gray-800">{formatDob(selectedStudent.dob)}</p>
+                  </div>
+                  <div className="p-2 bg-white rounded border border-gray-100">
+                    <p className="text-xs text-gray-400">Trạng thái</p>
+                    <p className="font-medium text-blue-600">{normalizeStudentStatus(selectedStudent.status)}</p>
+                  </div>
+                </div>
               </div>
-              
+
               <div>
-                 {/* Accordion Style Items */}
-                 <div className="border-b border-gray-100">
-                     <button 
-                        onClick={() => navigate(`/admin/customers/student-detail/${selectedStudent.id}?tab=finance`)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-                     >
-                        <span className="font-semibold text-gray-700">Lịch sử ghi danh & Tài chính</span>
-                        <ArrowRight size={16} className="text-gray-400" />
-                     </button>
-                 </div>
-                 
-                 <div className="p-4">
-                     <h4 className="font-bold text-red-500 font-handwriting text-lg mb-3">Lịch sử chăm sóc</h4>
-                     
-                     <div className="space-y-4 pl-4 border-l-2 border-gray-100 ml-2">
-                        {/* Loading state */}
-                        {feedbacksLoading && (
-                          <p className="text-sm text-gray-400 italic">Đang tải...</p>
-                        )}
-                        
-                        {/* Feedbacks (Form khảo sát, Gọi điện) */}
-                        {!feedbacksLoading && studentFeedbacks.length > 0 && studentFeedbacks.map(feedback => (
-                           <div key={feedback.id} className="relative mb-6">
-                              <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${
-                                feedback.status === 'Completed' ? 'bg-green-500' : 
-                                feedback.status === 'Pending' ? 'bg-orange-500' : 'bg-gray-400'
-                              }`}></div>
-                              <p className="text-xs text-gray-500 font-medium mb-1">
-                                {feedback.date ? new Date(feedback.date).toLocaleDateString('vi-VN') : ''} - 
-                                <span className={`ml-1 ${feedback.type === 'Form' ? 'text-purple-600' : 'text-orange-600'}`}>
-                                  {feedback.type === 'Form' ? 'Form khảo sát' : 'Gọi điện'}
-                                </span>
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
-                                  feedback.status === 'Completed' ? 'bg-green-100 text-green-700' : 
-                                  feedback.status === 'Pending' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {feedback.status === 'Completed' ? 'Hoàn thành' : feedback.status === 'Pending' ? 'Cần gọi' : feedback.status}
-                                </span>
-                              </p>
-                              <div className="text-sm text-gray-800 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                <p><span className="text-gray-500">Lớp:</span> {feedback.className}</p>
-                                {feedback.averageScore && (
-                                  <p><span className="text-gray-500">Điểm TB:</span> <span className="font-bold text-indigo-600">{feedback.averageScore}</span></p>
-                                )}
-                                {feedback.notes && <p className="mt-1 text-gray-600">{feedback.notes}</p>}
-                              </div>
-                           </div>
-                        ))}
-                        
-                        {/* Care History */}
-                        {selectedStudent.careHistory && selectedStudent.careHistory.length > 0 && selectedStudent.careHistory.map(log => (
-                           <div key={log.id} className="relative mb-6">
-                              <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-teal-500 ring-4 ring-white"></div>
-                              <p className="text-xs text-gray-500 font-medium mb-1">{log.date} - <span className="text-teal-600">{log.type}</span></p>
-                              <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                {log.content}
-                              </p>
-                              <p className="text-[10px] text-gray-400 mt-1 text-right">Người tạo: {log.staff}</p>
-                           </div>
-                        ))}
-                        
-                        {/* Empty state */}
-                        {!feedbacksLoading && studentFeedbacks.length === 0 && (!selectedStudent.careHistory || selectedStudent.careHistory.length === 0) && (
-                            <p className="text-sm text-gray-400 italic">Chưa có lịch sử chăm sóc</p>
-                        )}
-                     </div>
-                 </div>
+                {/* Accordion Style Items */}
+                <div className="border-b border-gray-100">
+                  <button
+                    onClick={() => navigate(`/admin/customers/student-detail/${selectedStudent.id}?tab=finance`)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="font-semibold text-gray-700">Lịch sử ghi danh & Tài chính</span>
+                    <ArrowRight size={16} className="text-gray-400" />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <h4 className="font-bold text-red-500 font-handwriting text-lg mb-3">Lịch sử chăm sóc</h4>
+
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-100 ml-2">
+                    {/* Loading state */}
+                    {feedbacksLoading && (
+                      <p className="text-sm text-gray-400 italic">Đang tải...</p>
+                    )}
+
+                    {/* Feedbacks (Form khảo sát, Gọi điện) */}
+                    {!feedbacksLoading && studentFeedbacks.length > 0 && studentFeedbacks.map(feedback => (
+                      <div key={feedback.id} className="relative mb-6">
+                        <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${feedback.status === 'Completed' ? 'bg-green-500' :
+                            feedback.status === 'Pending' ? 'bg-orange-500' : 'bg-gray-400'
+                          }`}></div>
+                        <p className="text-xs text-gray-500 font-medium mb-1">
+                          {feedback.date ? new Date(feedback.date).toLocaleDateString('vi-VN') : ''} -
+                          <span className={`ml-1 ${feedback.type === 'Form' ? 'text-purple-600' : 'text-orange-600'}`}>
+                            {feedback.type === 'Form' ? 'Form khảo sát' : 'Gọi điện'}
+                          </span>
+                          <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${feedback.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                              feedback.status === 'Pending' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                            {feedback.status === 'Completed' ? 'Hoàn thành' : feedback.status === 'Pending' ? 'Cần gọi' : feedback.status}
+                          </span>
+                        </p>
+                        <div className="text-sm text-gray-800 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <p><span className="text-gray-500">Lớp:</span> {feedback.className}</p>
+                          {feedback.averageScore && (
+                            <p><span className="text-gray-500">Điểm TB:</span> <span className="font-bold text-indigo-600">{feedback.averageScore}</span></p>
+                          )}
+                          {feedback.notes && <p className="mt-1 text-gray-600">{feedback.notes}</p>}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Care History */}
+                    {selectedStudent.careHistory && selectedStudent.careHistory.length > 0 && selectedStudent.careHistory.map(log => (
+                      <div key={log.id} className="relative mb-6">
+                        <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-teal-500 ring-4 ring-white"></div>
+                        <p className="text-xs text-gray-500 font-medium mb-1">{log.date} - <span className="text-teal-600">{log.type}</span></p>
+                        <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          {log.content}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1 text-right">Người tạo: {log.staff}</p>
+                      </div>
+                    ))}
+
+                    {/* Empty state */}
+                    {!feedbacksLoading && studentFeedbacks.length === 0 && (!selectedStudent.careHistory || selectedStudent.careHistory.length === 0) && (
+                      <p className="text-sm text-gray-400 italic">Chưa có lịch sử chăm sóc</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
@@ -1033,10 +1043,10 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
                 </div>
               </div>
             </div>
-            
+
             <div className="p-5">
               <p className="text-gray-600 mb-4">Bạn muốn tiếp tục với học viên này như thế nào?</p>
-              
+
               <div className="space-y-3">
                 {/* Option 1: Ghi danh thủ công */}
                 <button
@@ -1053,7 +1063,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
                     </div>
                   </div>
                 </button>
-                
+
                 {/* Option 2: Tạo hợp đồng */}
                 <button
                   onClick={handlePostCreateContract}
@@ -1071,7 +1081,7 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
                 </button>
               </div>
             </div>
-            
+
             <div className="p-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => { setShowPostCreateModal(false); setNewlyCreatedStudent(null); }}
@@ -1301,8 +1311,8 @@ export const StudentManager: React.FC<StudentManagerProps> = ({
 
       {/* Click outside to close dropdown */}
       {actionDropdownId && (
-        <div 
-          className="fixed inset-0 z-40" 
+        <div
+          className="fixed inset-0 z-40"
           onClick={() => setActionDropdownId(null)}
         />
       )}

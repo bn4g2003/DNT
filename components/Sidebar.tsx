@@ -69,6 +69,18 @@ const subItemToModule: Record<string, ModuleKey> = {
   'settings-products': 'settings',
   'settings-inventory': 'settings',
   'settings-rooms': 'settings',
+  'academic-hub': 'schedule',
+  'training-ops': 'schedule',
+  'service-hub': 'service_dashboard',
+  'academic-hub': 'schedule',
+  'training-ops': 'schedule',
+  'service-hub': 'service_dashboard',
+  'marketing-hub': 'leads',
+  'marketing-tasks': 'marketing_tasks',
+  'marketing-kpi': 'marketing_kpi',
+  'marketing-platforms': 'marketing_platforms',
+  'campaigns': 'campaigns',
+  'leads': 'leads',
 };
 
 
@@ -97,13 +109,7 @@ const menuItems: MenuItem[] = [
     subItems: [
       { id: 'classes', label: 'Lớp học', path: '/admin/training/classes', icon: ChevronRight },
       { id: 'courses', label: 'Khóa học', path: '/admin/training/courses', icon: ChevronRight },
-      { id: 'schedule', label: 'Thời khóa biểu', path: '/admin/training/schedule', icon: ChevronRight },
-      { id: 'holidays', label: 'Lịch nghỉ', path: '/admin/training/holidays', icon: ChevronRight },
-      { id: 'attendance', label: 'Điểm danh', path: '/admin/training/attendance', icon: ChevronRight },
-      { id: 'tutoring', label: 'Lịch bồi', path: '/admin/training/tutoring', icon: ChevronRight },
-      { id: 'homework', label: 'Bài tập về nhà', path: '/admin/training/homework', icon: ChevronRight },
-      { id: 'attendance-history', label: 'Lịch sử điểm danh', path: '/admin/training/attendance-history', icon: ChevronRight },
-      { id: 'enrollment-history', label: 'Lịch sử ghi danh', path: '/admin/training/enrollment', icon: ChevronRight },
+      { id: 'academic-hub', label: 'Vận hành Đào tạo', path: '/admin/training/hub', icon: ChevronRight },
       { id: 'resources', label: 'Thư viện tài nguyên', path: '/admin/training/resources', icon: ChevronRight },
     ]
   },
@@ -112,14 +118,9 @@ const menuItems: MenuItem[] = [
     label: 'Khách Hàng',
     icon: Users,
     subItems: [
-      { id: 'students', label: 'Danh sách học viên', path: '/admin/customers/students', icon: ChevronRight },
-      { id: 'parents', label: 'Danh sách phụ huynh', path: '/admin/customers/parents', icon: ChevronRight },
-      { id: 'dropped', label: 'DS Học viên đã nghỉ', path: '/admin/customers/dropped', icon: ChevronRight },
-      { id: 'reserved', label: 'DS Học viên bảo lưu', path: '/admin/customers/reserved', icon: ChevronRight },
-      { id: 'feedback', label: 'Phản hồi khách hàng', path: '/admin/customers/feedback', icon: ChevronRight },
-      { id: 'surveys', label: 'Form khảo sát', path: '/admin/customers/surveys', icon: ChevronRight },
-      { id: 'trial', label: 'DS Học viên học thử', path: '/admin/customers/trial', icon: ChevronRight },
-      { id: 'service-dashboard', label: 'Dashboard CSKH', path: '/admin/customers/service-dashboard', icon: ChevronRight },
+      { id: 'students', label: 'Học viên', path: '/admin/customers/students', icon: ChevronRight },
+      { id: 'parents', label: 'Phụ huynh', path: '/admin/customers/parents', icon: ChevronRight },
+      { id: 'service-hub', label: 'Chăm sóc Khách hàng', path: '/admin/customers/hub', icon: ChevronRight },
     ]
   },
   {
@@ -140,16 +141,10 @@ const menuItems: MenuItem[] = [
     icon: UserCog,
     subItems: [
       { id: 'staff', label: 'Quản lý Nhân sự', path: '/admin/hr/staff', icon: ChevronRight },
+      { id: 'teacher-hub', label: 'Quản lý Giáo viên', path: '/admin/hr/teacher-hub', icon: ChevronRight },
+      { id: 'payroll-hub', label: 'Lương & Chấm công', path: '/admin/hr/payroll', icon: ChevronRight },
       { id: 'dept-goals', label: 'Mục tiêu phòng ban', path: '/admin/hr/department-goals', icon: ChevronRight },
       { id: 'dept-bonus', label: 'Cấu hình thưởng KPI', path: '/admin/hr/department-bonus', icon: ChevronRight },
-      { id: 'teacher-report', label: 'Báo cáo GV/TG', path: '/admin/hr/teacher-report', icon: ChevronRight },
-      { id: 'teacher-tasks', label: 'Task GV/TG', path: '/admin/hr/teacher-tasks', icon: ChevronRight },
-      { id: 'teacher-goals', label: 'Mục tiêu GV/TG', path: '/admin/hr/teacher-goals', icon: ChevronRight },
-      { id: 'salary', label: 'Cấu hình lương GV/TG', path: '/admin/hr/salary', icon: ChevronRight },
-      { id: 'rewards', label: 'Thưởng / Phạt', path: '/admin/hr/rewards', icon: ChevronRight },
-      { id: 'work-confirm', label: 'Xác nhận công', path: '/admin/hr/work-confirmation', icon: ChevronRight },
-      { id: 'report-teacher', label: 'Báo cáo lương GV/TG', path: '/admin/hr/salary-teacher', icon: ChevronRight },
-      { id: 'report-staff', label: 'Báo cáo lương NV', path: '/admin/hr/salary-staff', icon: ChevronRight },
     ]
   },
   {
@@ -157,8 +152,7 @@ const menuItems: MenuItem[] = [
     label: 'Tài chính',
     icon: DollarSign,
     subItems: [
-      { id: 'contracts', label: 'Danh sách hợp đồng', path: '/admin/finance/contracts', icon: ChevronRight },
-      { id: 'contracts-create', label: 'Tạo hợp đồng', path: '/admin/finance/contracts/create', icon: ChevronRight },
+      { id: 'contracts', label: 'Quản lý hợp đồng', path: '/admin/finance/contracts', icon: ChevronRight },
       { id: 'invoices', label: 'Hóa đơn bán sách', path: '/admin/finance/invoices', icon: ChevronRight },
       { id: 'debt', label: 'Quản lý công nợ', path: '/admin/finance/debt', icon: ChevronRight },
       { id: 'revenue', label: 'Báo cáo doanh thu', path: '/admin/finance/revenue', icon: ChevronRight },
@@ -180,11 +174,11 @@ const menuItems: MenuItem[] = [
     icon: Settings,
     subItems: [
       { id: 'settings-center', label: 'Quản lý cơ sở', path: '/admin/settings/center', icon: ChevronRight },
-      { id: 'settings-staff', label: 'Quản lý nhân viên', path: '/admin/settings/staff', icon: ChevronRight },
+      { id: 'settings-rooms', label: 'Quản lý phòng học', path: '/admin/settings/rooms', icon: ChevronRight },
       { id: 'settings-curriculum', label: 'Quản lý Gói học', path: '/admin/settings/curriculum', icon: ChevronRight },
       { id: 'settings-products', label: 'Quản lý vật phẩm', path: '/admin/settings/products', icon: ChevronRight },
       { id: 'settings-inventory', label: 'Quản lý kho', path: '/admin/settings/inventory', icon: ChevronRight },
-      { id: 'settings-rooms', label: 'Quản lý phòng học', path: '/admin/settings/rooms', icon: ChevronRight },
+      { id: 'settings-staff', label: 'Quản lý nhân viên', path: '/admin/settings/staff', icon: ChevronRight },
     ]
   }
 ];

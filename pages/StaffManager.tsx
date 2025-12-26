@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, User, Eye, EyeOff, AlertTriangle, X, Phone, Building2, FileText, Users, DollarSign, CheckCircle, UserPlus, FileSignature, TrendingUp, Save } from 'lucide-react';
-import { Staff, StaffRole, Candidate, StaffContract, SalaryScale, ContractType, ContractStatus } from '../types';
+import { Staff, StaffRole, Candidate, StaffContract, ContractType, ContractStatus } from '../types';
 import { useStaff } from '../src/hooks/useStaff';
 import { useCandidate } from '../src/hooks/useCandidate';
 import { useStaffContract } from '../src/hooks/useStaffContract';
-import { useSalaryScale } from '../src/hooks/useSalaryScale';
+
 import { ImportExportButtons } from '../components/ImportExportButtons';
 import { StaffFormModal } from '../components/StaffFormModal';
+import { StaffFormModalEnhanced } from '../components/StaffFormModalEnhanced';
+import { CandidateTab } from '../components/CandidateTab';
+import { ContractTab } from '../components/ContractTab';
 import { STAFF_FIELDS, STAFF_MAPPING, prepareStaffExport } from '../src/utils/excelUtils';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../src/config/firebase';
@@ -25,19 +28,22 @@ const POSITIONS = {
 const AVAILABLE_ROLES: StaffRole[] = ['Giáo viên', 'Trợ giảng', 'Nhân viên', 'Sale', 'Văn phòng', 'Quản lý', 'Quản trị viên'];
 
 export const StaffManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'staff' | 'candidates' | 'contracts' | 'salary'>('staff');
+  const [activeTab, setActiveTab] = useState<'staff' | 'candidates' | 'contracts'>('staff');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('ALL');
   const [filterBranch, setFilterBranch] = useState('ALL');
   const [showModal, setShowModal] = useState(false);
+  const [showEnhancedModal, setShowEnhancedModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [centerList, setCenterList] = useState<{ id: string; name: string }[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const { staff, loading, createStaff, updateStaff, deleteStaff } = useStaff();
   const { candidates, loading: candidatesLoading, createCandidate, updateCandidate, deleteCandidate } = useCandidate();
   const { contracts, loading: contractsLoading, createContract, updateContract, deleteContract } = useStaffContract();
-  const { salaryScales, loading: scalesLoading, createSalaryScale, updateSalaryScale, deleteSalaryScale } = useSalaryScale();
+
 
   // Fetch centers from Firestore
   useEffect(() => {
@@ -307,7 +313,7 @@ export const StaffManager: React.FC = () => {
                   entityName="nhân viên"
                 />
                 <button
-                  onClick={handleCreate}
+                  onClick={() => { setEditingStaff(null); setShowEnhancedModal(true); }}
                   className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                 >
                   <Plus size={18} />
@@ -315,33 +321,7 @@ export const StaffManager: React.FC = () => {
                 </button>
               </>
             )}
-            {activeTab === 'candidates' && (
-              <button
-                onClick={() => {/* TODO: Add candidate */ }}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={18} />
-                Thêm ứng viên
-              </button>
-            )}
-            {activeTab === 'contracts' && (
-              <button
-                onClick={() => {/* TODO: Add contract */ }}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={18} />
-                Tạo hợp đồng
-              </button>
-            )}
-            {activeTab === 'salary' && (
-              <button
-                onClick={() => {/* TODO: Add salary scale */ }}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={18} />
-                Tạo thang lương
-              </button>
-            )}
+
           </div>
         </div>
 
@@ -350,8 +330,8 @@ export const StaffManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('staff')}
             className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'staff'
-                ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
           >
             <Users size={18} />
@@ -360,8 +340,8 @@ export const StaffManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('candidates')}
             className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'candidates'
-                ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
           >
             <UserPlus size={18} />
@@ -370,22 +350,12 @@ export const StaffManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('contracts')}
             className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'contracts'
-                ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
           >
             <FileSignature size={18} />
             Hợp đồng ({contracts.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('salary')}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'salary'
-                ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-          >
-            <TrendingUp size={18} />
-            Thang lương ({salaryScales.length})
           </button>
         </div>
       </div>
@@ -444,7 +414,7 @@ export const StaffManager: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStaff.length > 0 ? filteredStaff.map((s, index) => (
-                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={s.id} onClick={() => { setSelectedStaff(s); setShowDetailModal(true); }} className="hover:bg-gray-50 transition-colors cursor-pointer">
                     <td className="px-6 py-4 text-gray-400">{index + 1}</td>
                     <td className="px-6 py-4">
                       <div>
@@ -482,10 +452,10 @@ export const StaffManager: React.FC = () => {
                         ))}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleEdit(s)}
+                          onClick={() => { setEditingStaff(s); setShowEnhancedModal(true); }}
                           className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
                           title="Sửa"
                         >
@@ -523,405 +493,445 @@ export const StaffManager: React.FC = () => {
 
       {/* Candidates Tab */}
       {activeTab === 'candidates' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-          <UserPlus size={48} className="mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 mb-2">Chức năng Quản lý Ứng viên</p>
-          <p className="text-sm text-gray-400">Danh sách ứng viên, phỏng vấn, tuyển dụng</p>
-          <p className="text-xs text-amber-600 mt-4">Đang phát triển...</p>
-        </div>
+        <CandidateTab
+          candidates={candidates}
+          loading={candidatesLoading}
+          createCandidate={createCandidate}
+          updateCandidate={updateCandidate}
+          deleteCandidate={deleteCandidate}
+          createStaff={createStaff}
+          centerList={centerList}
+        />
       )}
 
       {/* Contracts Tab */}
       {activeTab === 'contracts' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-          <FileSignature size={48} className="mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 mb-2">Chức năng Quản lý Hợp đồng</p>
-          <p className="text-sm text-gray-400">Hợp đồng lao động, theo dõi thời hạn, gia hạn</p>
-          <p className="text-xs text-amber-600 mt-4">Đang phát triển...</p>
-        </div>
+        <ContractTab
+          contracts={contracts}
+          staff={staff}
+          loading={contractsLoading}
+          createContract={createContract}
+          updateContract={updateContract}
+          deleteContract={deleteContract}
+        />
       )}
 
-      {/* Salary Scale Tab */}
-      {activeTab === 'salary' && (
-        <>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-2">Thang lương 8 bậc</h3>
-              <p className="text-sm text-gray-500">
-                Thiết lập hệ thống thang lương cho nhân viên văn phòng. Mỗi bậc có hệ số nhân với mức lương cơ sở.
-              </p>
-            </div>
 
-            {/* Salary Scale Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {salaryScales.length > 0 ? salaryScales.map((scale) => (
-                <div key={scale.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Header */}
-                  <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 border-b border-gray-200">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-bold text-gray-900">{scale.name}</h4>
-                        {scale.staffName && (
-                          <p className="text-sm text-indigo-600 flex items-center gap-1 mt-1">
-                            <User size={14} />
-                            {scale.staffName}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Hiệu lực: {formatDate(scale.effectiveDate)}
-                        </p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${scale.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                        {scale.status === 'Active' ? 'Đang áp dụng' : 'Không áp dụng'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Base Amount */}
-                  <div className="p-4 bg-amber-50 border-b border-amber-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Mức lương bậc I (Cơ sở)</span>
-                      <span className="text-lg font-bold text-amber-600">{formatCurrency(scale.baseAmount)}</span>
-                    </div>
-                  </div>
-
-                  {/* Grades Table */}
-                  <div className="p-4">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">Bậc</th>
-                          <th className="px-3 py-2 text-center font-medium text-gray-600">Hệ số</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-600">Mức lương</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {scale.grades.map((grade) => (
-                          <tr key={grade.grade} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium text-gray-900">Bậc {grade.grade}</td>
-                            <td className="px-3 py-2 text-center text-gray-600">{grade.coefficient.toFixed(1)}</td>
-                            <td className="px-3 py-2 text-right font-medium text-green-600">
-                              {formatCurrency(grade.amount)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <div className="text-xs text-gray-500">
-                      {scale.staffId ? 'Thang lương riêng' : 'Thang lương chung'}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {/* TODO: Edit */ }}
-                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
-                        title="Sửa"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => {/* TODO: Delete */ }}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Xóa"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <div className="col-span-2 text-center py-12">
-                  <TrendingUp size={48} className="mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500 mb-2">Chưa có thang lương nào</p>
-                  <p className="text-sm text-gray-400">Nhấn nút "Tạo thang lương" để bắt đầu</p>
-                </div>
-              )}
-            </div>
-
-            {/* Info Box */}
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0">
-                  <DollarSign className="text-blue-600" size={20} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium text-blue-900 mb-1">Hướng dẫn sử dụng</h4>
-                  <ul className="text-xs text-blue-700 space-y-1">
-                    <li>• <strong>Thang lương chung:</strong> Áp dụng cho tất cả nhân viên văn phòng</li>
-                    <li>• <strong>Thang lương riêng:</strong> Áp dụng cho từng nhân viên cụ thể</li>
-                    <li>• <strong>Công thức:</strong> Mức lương = Hệ số × Mức lương bậc I</li>
-                    <li>• <strong>Gán bậc lương:</strong> Vào tab "Nhân viên" → Chọn nhân viên → Sửa → Chọn bậc lương</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-green-50 to-teal-50">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  {editingStaff ? 'Chỉnh sửa nhân viên' : 'Tạo mới nhân viên'}
-                </h3>
-                {editingStaff && <p className="text-sm text-teal-600">{editingStaff.name} - {editingStaff.code}</p>}
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={22} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Họ tên *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Nhập họ tên đầy đủ"
-                />
+      {
+        showModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-green-50 to-teal-50">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {editingStaff ? 'Chỉnh sửa nhân viên' : 'Tạo mới nhân viên'}
+                  </h3>
+                  {editingStaff && <p className="text-sm text-teal-600">{editingStaff.name} - {editingStaff.code}</p>}
+                </div>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={22} />
+                </button>
               </div>
 
-              {/* DOB & Phone */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
+                {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sinh nhật</label>
-                  <input
-                    type="date"
-                    value={formData.dob}
-                    onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SĐT *</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="0901234567"
-                  />
-                </div>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phòng ban</label>
-                <div className="flex gap-4">
-                  {DEPARTMENTS.map(dept => (
-                    <label key={dept} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="department"
-                        checked={formData.department === dept}
-                        onChange={() => setFormData({
-                          ...formData,
-                          department: dept,
-                          position: POSITIONS[dept as keyof typeof POSITIONS]?.[0] || ''
-                        })}
-                        className="text-indigo-600"
-                      />
-                      {dept}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Position & Branch */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vị trí</label>
-                  <select
-                    value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {(POSITIONS[formData.department as keyof typeof POSITIONS] || []).map(pos => (
-                      <option key={pos} value={pos}>{pos}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cơ sở làm việc</label>
-                  <select
-                    value={formData.branch}
-                    onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">-- Chọn cơ sở --</option>
-                    {centerList.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Multiple Roles */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Vai trò (có thể chọn nhiều)
-                </label>
-                <div className="border border-gray-300 rounded-lg p-2 grid grid-cols-2 gap-2">
-                  {AVAILABLE_ROLES.map(role => (
-                    <label key={role} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={formData.roles.includes(role)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, roles: [...formData.roles, role] });
-                          } else {
-                            setFormData({ ...formData, roles: formData.roles.filter(r => r !== role) });
-                          }
-                        }}
-                        className="rounded border-gray-300 text-indigo-600"
-                      />
-                      <span className="text-sm">{role}</span>
-                    </label>
-                  ))}
-                </div>
-                {formData.roles.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">Đã chọn: {formData.roles.join(', ')}</p>
-                )}
-              </div>
-
-              {/* Start Date & Contract Link */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu làm việc</label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Link Hợp đồng</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Họ tên *</label>
                   <input
                     type="text"
-                    value={formData.contractLink}
-                    onChange={(e) => setFormData({ ...formData, contractLink: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="URL..."
+                    placeholder="Nhập họ tên đầy đủ"
                   />
                 </div>
-              </div>
 
-              {/* Salary Information */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Thông tin lương (Nhân viên văn phòng)</h4>
-                <div className="grid grid-cols-3 gap-4">
+                {/* DOB & Phone */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bậc lương</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sinh nhật</label>
+                    <input
+                      type="date"
+                      value={formData.dob}
+                      onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">SĐT *</label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="0901234567"
+                    />
+                  </div>
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phòng ban</label>
+                  <div className="flex gap-4">
+                    {DEPARTMENTS.map(dept => (
+                      <label key={dept} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="department"
+                          checked={formData.department === dept}
+                          onChange={() => setFormData({
+                            ...formData,
+                            department: dept,
+                            position: POSITIONS[dept as keyof typeof POSITIONS]?.[0] || ''
+                          })}
+                          className="text-indigo-600"
+                        />
+                        {dept}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Position & Branch */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vị trí</label>
                     <select
-                      value={formData.salaryGrade || ''}
-                      onChange={(e) => setFormData({ ...formData, salaryGrade: parseInt(e.target.value) || undefined })}
+                      value={formData.position}
+                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="">-- Chọn bậc --</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(grade => (
-                        <option key={grade} value={grade}>Bậc {grade}</option>
+                      {(POSITIONS[formData.department as keyof typeof POSITIONS] || []).map(pos => (
+                        <option key={pos} value={pos}>{pos}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lương cơ bản (VNĐ)</label>
-                    <input
-                      type="number"
-                      value={formData.baseSalary || ''}
-                      onChange={(e) => setFormData({ ...formData, baseSalary: parseInt(e.target.value) || undefined })}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cơ sở làm việc</label>
+                    <select
+                      value={formData.branch}
+                      onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="0"
-                      step={100000}
+                    >
+                      <option value="">-- Chọn cơ sở --</option>
+                      {centerList.map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Multiple Roles */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vai trò (có thể chọn nhiều)
+                  </label>
+                  <div className="border border-gray-300 rounded-lg p-2 grid grid-cols-2 gap-2">
+                    {AVAILABLE_ROLES.map(role => (
+                      <label key={role} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.roles.includes(role)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, roles: [...formData.roles, role] });
+                            } else {
+                              setFormData({ ...formData, roles: formData.roles.filter(r => r !== role) });
+                            }
+                          }}
+                          className="rounded border-gray-300 text-indigo-600"
+                        />
+                        <span className="text-sm">{role}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.roles.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">Đã chọn: {formData.roles.join(', ')}</p>
+                  )}
+                </div>
+
+                {/* Start Date & Contract Link */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu làm việc</label>
+                    <input
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phụ cấp (VNĐ)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Link Hợp đồng</label>
                     <input
-                      type="number"
-                      value={formData.allowance || ''}
-                      onChange={(e) => setFormData({ ...formData, allowance: parseInt(e.target.value) || undefined })}
+                      type="text"
+                      value={formData.contractLink}
+                      onChange={(e) => setFormData({ ...formData, contractLink: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="0"
-                      step={50000}
+                      placeholder="URL..."
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  * Áp dụng cho nhân viên văn phòng. Giáo viên/Trợ giảng cấu hình lương tại trang "Cấu hình lương GV/TG"
-                </p>
+
+                {/* Salary Information */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Thông tin lương (Nhân viên văn phòng)</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bậc lương</label>
+                      <select
+                        value={formData.salaryGrade || ''}
+                        onChange={(e) => setFormData({ ...formData, salaryGrade: parseInt(e.target.value) || undefined })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">-- Chọn bậc --</option>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(grade => (
+                          <option key={grade} value={grade}>Bậc {grade}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Lương cơ bản (VNĐ)</label>
+                      <input
+                        type="number"
+                        value={formData.baseSalary || ''}
+                        onChange={(e) => setFormData({ ...formData, baseSalary: parseInt(e.target.value) || undefined })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="0"
+                        step={100000}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phụ cấp (VNĐ)</label>
+                      <input
+                        type="number"
+                        value={formData.allowance || ''}
+                        onChange={(e) => setFormData({ ...formData, allowance: parseInt(e.target.value) || undefined })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="0"
+                        step={50000}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * Áp dụng cho nhân viên văn phòng. Giáo viên/Trợ giảng cấu hình lương tại trang "Cấu hình lương GV/TG"
+                  </p>
+                </div>
+
+                {/* Login Credentials */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Thông tin đăng nhập</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="username"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 bg-yellow-50 text-yellow-800 text-xs p-2 rounded flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    Vui lòng chọn mật khẩu không liên quan đến thông tin cá nhân!
+                  </div>
+                </div>
               </div>
 
-              {/* Login Credentials */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Thông tin đăng nhập</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="username"
-                    />
+              <div className="p-5 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  {editingStaff ? 'Cập nhật' : 'Xác nhận'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Staff Detail Modal */}
+      {
+        showDetailModal && selectedStaff && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-5 border-b bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex justify-between items-start">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                    <User size={32} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                    <h3 className="text-xl font-bold">{selectedStaff.name}</h3>
+                    <p className="text-indigo-100">{selectedStaff.code} • {selectedStaff.position}</p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${selectedStaff.status === 'Active' ? 'bg-green-400 text-green-900' : 'bg-gray-400 text-gray-900'}`}>
+                      {selectedStaff.status === 'Active' ? 'Đang làm việc' : 'Đã nghỉ việc'}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setShowDetailModal(false)} className="text-white/80 hover:text-white"><X size={24} /></button>
+              </div>
+              <div className="p-5 overflow-y-auto max-h-[calc(90vh-200px)] space-y-6">
+                {/* Thông tin lý lịch */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <User size={18} className="text-indigo-500" /> Thông tin lý lịch
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-gray-500">Ngày sinh:</span><p className="font-medium">{selectedStaff.dob ? new Date(selectedStaff.dob).toLocaleDateString('vi-VN') : '-'}</p></div>
+                    <div><span className="text-gray-500">Giới tính:</span><p className="font-medium">{selectedStaff.gender || '-'}</p></div>
+                    <div><span className="text-gray-500">CCCD/CMND:</span><p className="font-medium">{selectedStaff.idNumber || '-'}</p></div>
+                    <div><span className="text-gray-500">Ngày cấp:</span><p className="font-medium">{selectedStaff.idIssueDate ? new Date(selectedStaff.idIssueDate).toLocaleDateString('vi-VN') : '-'}</p></div>
+                    <div><span className="text-gray-500">Nơi cấp:</span><p className="font-medium">{selectedStaff.idIssuePlace || '-'}</p></div>
+                    <div><span className="text-gray-500">Địa chỉ:</span><p className="font-medium">{selectedStaff.address || '-'}</p></div>
+                    <div className="col-span-2"><span className="text-gray-500">Địa chỉ thường trú:</span><p className="font-medium">{selectedStaff.permanentAddress || '-'}</p></div>
+                  </div>
+                </div>
+
+                {/* Thông tin liên hệ */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <Phone size={18} className="text-green-500" /> Thông tin liên hệ
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-gray-500">Số điện thoại:</span><p className="font-medium text-blue-600">{selectedStaff.phone || '-'}</p></div>
+                    <div><span className="text-gray-500">Email:</span><p className="font-medium">{selectedStaff.email || '-'}</p></div>
+                    <div><span className="text-gray-500">Cơ sở làm việc:</span><p className="font-medium">{selectedStaff.branch || '-'}</p></div>
+                  </div>
+                </div>
+
+                {/* Bằng cấp, trình độ */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <FileText size={18} className="text-teal-500" /> Bằng cấp & Trình độ
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-gray-500">Trình độ học vấn:</span><p className="font-medium">{selectedStaff.education || '-'}</p></div>
+                    <div><span className="text-gray-500">Bằng cấp:</span><p className="font-medium">{selectedStaff.degree || '-'}</p></div>
+                    <div><span className="text-gray-500">Chuyên ngành:</span><p className="font-medium">{selectedStaff.major || '-'}</p></div>
+                    <div className="col-span-3">
+                      <span className="text-gray-500">Chứng chỉ:</span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {selectedStaff.certificates?.length ? selectedStaff.certificates.map((cert, i) => (
+                          <span key={i} className="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">{cert}</span>
+                        )) : <span className="text-gray-400">-</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 bg-yellow-50 text-yellow-800 text-xs p-2 rounded flex items-center gap-2">
-                  <AlertTriangle size={14} />
-                  Vui lòng chọn mật khẩu không liên quan đến thông tin cá nhân!
+
+                {/* Vị trí & Phòng ban */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <Building2 size={18} className="text-blue-500" /> Vị trí công việc
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-gray-500">Phòng ban:</span><p className="font-medium">{selectedStaff.department || '-'}</p></div>
+                    <div><span className="text-gray-500">Vị trí:</span><p className="font-medium">{selectedStaff.position || '-'}</p></div>
+                    <div><span className="text-gray-500">Ngày bắt đầu:</span><p className="font-medium">{selectedStaff.startDate ? new Date(selectedStaff.startDate).toLocaleDateString('vi-VN') : '-'}</p></div>
+                    <div><span className="text-gray-500">Vai trò:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(selectedStaff.roles?.length ? selectedStaff.roles : [selectedStaff.role]).map((role, i) => (
+                          <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{role}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Lương thưởng */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <DollarSign size={18} className="text-amber-500" /> Thông tin lương
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div><span className="text-gray-500">Bậc lương:</span><p className="font-medium">{selectedStaff.salaryGrade ? `Bậc ${selectedStaff.salaryGrade}` : '-'}</p></div>
+                    <div><span className="text-gray-500">Lương cơ bản:</span><p className="font-medium text-green-600">{selectedStaff.baseSalary ? formatCurrency(selectedStaff.baseSalary) : '-'}</p></div>
+                    <div><span className="text-gray-500">Phụ cấp:</span><p className="font-medium">{selectedStaff.allowance ? formatCurrency(selectedStaff.allowance) : '-'}</p></div>
+                    <div><span className="text-gray-500">Loại HĐ:</span><p className="font-medium">{selectedStaff.currentContractType || '-'}</p></div>
+                  </div>
+                </div>
+
+                {/* Thông tin ngân hàng */}
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                    <CheckCircle size={18} className="text-purple-500" /> Thông tin khác
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-gray-500">Số tài khoản:</span><p className="font-medium">{selectedStaff.bankAccount || '-'}</p></div>
+                    <div><span className="text-gray-500">Ngân hàng:</span><p className="font-medium">{selectedStaff.bankName || '-'}</p></div>
+                    <div><span className="text-gray-500">Mã số thuế:</span><p className="font-medium">{selectedStaff.taxCode || '-'}</p></div>
+                    <div><span className="text-gray-500">Số bảo hiểm:</span><p className="font-medium">{selectedStaff.insuranceNumber || '-'}</p></div>
+                  </div>
+                </div>
+
+                {selectedStaff.notes && (
+                  <div>
+                    <h4 className="font-bold text-gray-800 mb-2">Ghi chú</h4>
+                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">{selectedStaff.notes}</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-5 border-t bg-gray-50 flex justify-end gap-3">
+                <button onClick={() => { setShowDetailModal(false); setEditingStaff(selectedStaff); setShowEnhancedModal(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                  <Edit size={16} className="inline mr-2" />Chỉnh sửa
+                </button>
+                <button onClick={() => setShowDetailModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Đóng</button>
               </div>
             </div>
-
-            <div className="p-5 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                {editingStaff ? 'Cập nhật' : 'Xác nhận'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+
+      {/* Enhanced Staff Form Modal */}
+      {
+        showEnhancedModal && (
+          <StaffFormModalEnhanced
+            isOpen={showEnhancedModal}
+            onClose={() => { setShowEnhancedModal(false); setEditingStaff(null); }}
+            onSubmit={async (data) => {
+              if (editingStaff) {
+                await updateStaff(editingStaff.id, data);
+                alert('Đã cập nhật nhân viên!');
+              } else {
+                await createStaff(data as Omit<Staff, 'id'>);
+                alert('Đã thêm nhân viên mới!');
+              }
+            }}
+            editingStaff={editingStaff}
+            centerList={centerList}
+          />
+        )
+      }
+    </div >
   );
 };

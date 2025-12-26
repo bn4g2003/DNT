@@ -1,14 +1,14 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
   where,
-  orderBy 
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -48,8 +48,8 @@ export const getStaffSalaries = async (month: number, year: number): Promise<Sta
   const staffSnapshot = await getDocs(collection(db, STAFF_COLLECTION));
   const officeStaff = staffSnapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
-    .filter((s: any) => 
-      s.department === 'Văn phòng' || 
+    .filter((s: any) =>
+      s.department === 'Văn phòng' ||
       s.department === 'Điều hành' ||
       s.position === 'Kế toán' ||
       s.position === 'Lễ tân' ||
@@ -83,7 +83,7 @@ export const getStaffSalaries = async (month: number, year: number): Promise<Sta
       position: staff.position || 'Nhân viên',
       month,
       year,
-      baseSalary: staff.salary || 0,
+      baseSalary: staff.baseSalary || 0,
       workDays: 0,
       commission: 0,
       allowance: 0,
@@ -130,10 +130,10 @@ export const getStaffAttendance = async (staffId: string, month?: number, year?:
     where('staffId', '==', staffId),
     orderBy('date', 'desc')
   );
-  
+
   const snapshot = await getDocs(q);
   let logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StaffAttendanceLog));
-  
+
   // Filter by month/year if provided
   if (month && year) {
     logs = logs.filter(log => {
@@ -141,7 +141,7 @@ export const getStaffAttendance = async (staffId: string, month?: number, year?:
       return m === month && y === year;
     });
   }
-  
+
   return logs;
 };
 
@@ -161,4 +161,72 @@ export const updateAttendanceLog = async (id: string, data: Partial<StaffAttenda
 export const deleteAttendanceLog = async (id: string): Promise<void> => {
   const docRef = doc(db, ATTENDANCE_COLLECTION, id);
   await deleteDoc(docRef);
+};
+
+// Generate monthly payroll snapshot for all eligible staff
+export const generateMonthlyPayroll = async (month: number, year: number): Promise<number> => {
+  try {
+    // 1. Get Office Staff
+    const staffSnapshot = await getDocs(collection(db, STAFF_COLLECTION));
+    const officeStaff = staffSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as any))
+      .filter((s: any) =>
+        (s.department === 'Văn phòng' ||
+          s.department === 'Điều hành' ||
+          s.position === 'Kế toán' ||
+          s.position === 'Lễ tân' ||
+          s.position === 'Tư vấn viên' ||
+          s.position === 'Quản lý') ||
+        (s.baseSalary && s.baseSalary > 0)
+      );
+
+    let count = 0;
+
+    for (const staff of officeStaff) {
+      // Check existing salary record
+      const q = query(
+        collection(db, SALARY_COLLECTION),
+        where('staffId', '==', staff.id),
+        where('month', '==', month),
+        where('year', '==', year)
+      );
+      const snap = await getDocs(q);
+
+      const baseSalary = staff.baseSalary || 0;
+      const allowance = staff.allowance || 0;
+
+      if (!snap.empty) {
+        // Update existing record with latest base salary info
+        const docId = snap.docs[0].id;
+        await updateDoc(doc(db, SALARY_COLLECTION, docId), {
+          baseSalary,
+          allowance,
+          // Recalculate total if needed, but let's be careful not to overwrite adjustments
+          // totalSalary: baseSalary + allowance + (snap.docs[0].data().commission || 0) - (snap.docs[0].data().deduction || 0)
+        });
+      } else {
+        // Create new record
+        const totalSalary = baseSalary + allowance;
+        await addDoc(collection(db, SALARY_COLLECTION), {
+          staffId: staff.id,
+          staffName: staff.name || 'N/A',
+          position: staff.position || 'Unknown',
+          month,
+          year,
+          baseSalary,
+          workDays: 26, // Default standard work days
+          commission: 0,
+          allowance,
+          deduction: 0,
+          totalSalary,
+          note: 'Auto-generated'
+        });
+        count++;
+      }
+    }
+    return count;
+  } catch (error) {
+    console.error('Error generating payroll:', error);
+    throw error;
+  }
 };

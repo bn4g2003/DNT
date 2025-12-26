@@ -11,6 +11,13 @@ import { initAutoNotifications } from './src/services/autoNotificationTriggers';
 // Lazy load page components for code splitting
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const ClassManager = lazy(() => import('./pages/ClassManager').then(m => ({ default: m.ClassManager })));
+const AcademicHub = lazy(() => import('./pages/AcademicHub').then(m => ({ default: m.AcademicHub })));
+const ServiceHub = lazy(() => import('./pages/ServiceHub').then(m => ({ default: m.ServiceHub })));
+const MarketingHub = lazy(() => import('./pages/MarketingHub').then(m => ({ default: m.MarketingHub })));
+const FinanceHub = lazy(() => import('./pages/FinanceHub').then(m => ({ default: m.FinanceHub })));
+const ReportHub = lazy(() => import('./pages/ReportHub').then(m => ({ default: m.ReportHub })));
+const ConfigurationHub = lazy(() => import('./pages/ConfigurationHub').then(m => ({ default: m.ConfigurationHub })));
+
 const StudentManager = lazy(() => import('./pages/StudentManager').then(m => ({ default: m.StudentManager })));
 const TrialStudents = lazy(() => import('./pages/TrialStudents').then(m => ({ default: m.TrialStudents })));
 const Schedule = lazy(() => import('./pages/Schedule').then(m => ({ default: m.Schedule })));
@@ -25,7 +32,7 @@ const InventoryManager = lazy(() => import('./pages/InventoryManager').then(m =>
 const RoomManager = lazy(() => import('./pages/RoomManager').then(m => ({ default: m.RoomManager })));
 const EnrollmentHistory = lazy(() => import('./pages/EnrollmentHistory').then(m => ({ default: m.EnrollmentHistory })));
 const ParentManager = lazy(() => import('./pages/ParentManager').then(m => ({ default: m.ParentManager })));
-const SalaryConfig = lazy(() => import('./pages/SalaryConfig').then(m => ({ default: m.SalaryConfig })));
+const SalaryManager = lazy(() => import('./pages/SalaryManager').then(m => ({ default: m.SalaryManager })));
 const StaffRewardPenalty = lazy(() => import('./pages/StaffRewardPenalty').then(m => ({ default: m.StaffRewardPenalty })));
 const WorkConfirmation = lazy(() => import('./pages/WorkConfirmation').then(m => ({ default: m.WorkConfirmation })));
 const SalaryReportTeacher = lazy(() => import('./pages/SalaryReportTeacher').then(m => ({ default: m.SalaryReportTeacher })));
@@ -60,6 +67,8 @@ const CourseManager = lazy(() => import('./pages/CourseManager').then(m => ({ de
 const TeacherDetailReport = lazy(() => import('./pages/TeacherDetailReport').then(m => ({ default: m.TeacherDetailReport })));
 const TeacherTaskManager = lazy(() => import('./pages/TeacherTaskManager').then(m => ({ default: m.TeacherTaskManager })));
 const TeacherGoalManager = lazy(() => import('./pages/TeacherGoalManager').then(m => ({ default: m.TeacherGoalManager })));
+const PayrollHub = lazy(() => import('./pages/PayrollHub').then(m => ({ default: m.PayrollHub })));
+const TeacherHub = lazy(() => import('./pages/TeacherHub').then(m => ({ default: m.TeacherHub })));
 
 // ERS - Employee Rating System pages
 const DepartmentGoalManager = lazy(() => import('./pages/DepartmentGoalManager').then(m => ({ default: m.DepartmentGoalManager })));
@@ -149,7 +158,8 @@ const App: React.FC = () => {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
 
-                {/* Training Routes */}
+                <Route path="/training/hub" element={<AcademicHub />} />
+                {/* Legacy Routes */}
                 <Route path="/training/classes" element={<ClassManager />} />
                 <Route path="/training/courses" element={<CourseManager />} />
                 <Route path="/training/resources" element={<ResourceLibrary />} />
@@ -162,6 +172,8 @@ const App: React.FC = () => {
                 <Route path="/training/enrollment" element={<EnrollmentHistory />} />
 
                 {/* Customer Routes */}
+                <Route path="/customers/hub" element={<ServiceHub />} />
+                {/* Legacy Routes */}
                 <Route path="/customers/students" element={<StudentManager key="all-students" title="Danh sách học viên" />} />
                 <Route path="/customers/student-detail/:id" element={<StudentDetail />} />
                 <Route path="/customers/parents" element={<ParentManager />} />
@@ -173,6 +185,7 @@ const App: React.FC = () => {
                 <Route path="/customers/service-dashboard" element={<CustomerServiceDashboard />} />
 
                 {/* Business Routes */}
+                <Route path="/business/hub" element={<MarketingHub />} />
                 <Route path="/business/leads" element={<CustomerDatabase />} />
                 <Route path="/business/campaigns" element={<CampaignManager />} />
                 <Route path="/business/tasks" element={<MarketingTaskManager />} />
@@ -183,16 +196,22 @@ const App: React.FC = () => {
                 <Route path="/hr/staff" element={<StaffManager />} />
                 <Route path="/hr/department-goals" element={<DepartmentGoalManager />} />
                 <Route path="/hr/department-bonus" element={<DepartmentBonusConfig />} />
+                <Route path="/hr/department-bonus" element={<DepartmentBonusConfig />} />
+                <Route path="/hr/teacher-hub" element={<TeacherHub />} />
+                <Route path="/hr/payroll" element={<PayrollHub />} />
+
+                {/* Legacy Routes - kept for direct access if needed */}
                 <Route path="/hr/teacher-report" element={<TeacherDetailReport />} />
                 <Route path="/hr/teacher-tasks" element={<TeacherTaskManager />} />
                 <Route path="/hr/teacher-goals" element={<TeacherGoalManager />} />
-                <Route path="/hr/salary" element={<SalaryConfig />} />
+                <Route path="/hr/salary" element={<SalaryManager />} />
                 <Route path="/hr/rewards" element={<StaffRewardPenalty />} />
                 <Route path="/hr/work-confirmation" element={<WorkConfirmation />} />
                 <Route path="/hr/salary-teacher" element={<SalaryReportTeacher />} />
                 <Route path="/hr/salary-staff" element={<SalaryReportStaff />} />
 
                 {/* Finance Routes */}
+                <Route path="/finance/hub" element={<FinanceHub />} />
                 <Route path="/finance/contracts" element={<ContractList />} />
                 <Route path="/finance/contracts/create" element={<ContractCreation />} />
                 <Route path="/finance/invoices" element={<InvoiceManager />} />
@@ -200,11 +219,13 @@ const App: React.FC = () => {
                 <Route path="/finance/debt" element={<DebtManagement />} />
 
                 {/* Report Routes */}
+                <Route path="/reports/hub" element={<ReportHub />} />
                 <Route path="/reports/training" element={<TrainingReport />} />
                 <Route path="/reports/finance" element={<RevenueReport />} />
                 <Route path="/reports/monthly" element={<MonthlyReport />} />
 
                 {/* Settings Routes */}
+                <Route path="/settings/hub" element={<ConfigurationHub />} />
                 <Route path="/settings/staff" element={<StaffManager />} />
                 <Route path="/settings/products" element={<ProductManager />} />
                 <Route path="/settings/inventory" element={<InventoryManager />} />
