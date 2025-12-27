@@ -72,15 +72,6 @@ const subItemToModule: Record<string, ModuleKey> = {
   'academic-hub': 'schedule',
   'training-ops': 'schedule',
   'service-hub': 'service_dashboard',
-  'academic-hub': 'schedule',
-  'training-ops': 'schedule',
-  'service-hub': 'service_dashboard',
-  'marketing-hub': 'leads',
-  'marketing-tasks': 'marketing_tasks',
-  'marketing-kpi': 'marketing_kpi',
-  'marketing-platforms': 'marketing_platforms',
-  'campaigns': 'campaigns',
-  'leads': 'leads',
 };
 
 
