@@ -60,6 +60,7 @@ const subItemToModule: Record<string, ModuleKey> = {
   'invoices': 'invoices',
   'debt': 'debt',
   'revenue': 'revenue',
+  'finance-analytics': 'reports_finance', // Reusing permission
   'report-training': 'reports_training',
   'report-finance': 'reports_finance',
   'report-monthly': 'reports_training',
@@ -146,7 +147,6 @@ const menuItems: MenuItem[] = [
       { id: 'contracts', label: 'Quản lý hợp đồng', path: '/admin/finance/contracts', icon: ChevronRight },
       { id: 'invoices', label: 'Hóa đơn bán sách', path: '/admin/finance/invoices', icon: ChevronRight },
       { id: 'debt', label: 'Quản lý công nợ', path: '/admin/finance/debt', icon: ChevronRight },
-      { id: 'revenue', label: 'Báo cáo doanh thu', path: '/admin/finance/revenue', icon: ChevronRight },
     ]
   },
   {
@@ -155,7 +155,7 @@ const menuItems: MenuItem[] = [
     icon: BarChart3,
     subItems: [
       { id: 'report-training', label: 'Báo cáo đào tạo', path: '/admin/reports/training', icon: ChevronRight },
-      { id: 'report-finance', label: 'Báo cáo tài chính', path: '/admin/reports/finance', icon: ChevronRight },
+      { id: 'report-financial', label: 'Báo cáo tài chính', path: '/admin/reports/financial', icon: ChevronRight },
       { id: 'report-monthly', label: 'Báo cáo học tập', path: '/admin/reports/monthly', icon: ChevronRight },
     ]
   },
@@ -164,12 +164,10 @@ const menuItems: MenuItem[] = [
     label: 'Cấu hình',
     icon: Settings,
     subItems: [
-      { id: 'settings-center', label: 'Quản lý cơ sở', path: '/admin/settings/center', icon: ChevronRight },
-      { id: 'settings-rooms', label: 'Quản lý phòng học', path: '/admin/settings/rooms', icon: ChevronRight },
-      { id: 'settings-curriculum', label: 'Quản lý Gói học', path: '/admin/settings/curriculum', icon: ChevronRight },
-      { id: 'settings-products', label: 'Quản lý vật phẩm', path: '/admin/settings/products', icon: ChevronRight },
-      { id: 'settings-inventory', label: 'Quản lý kho', path: '/admin/settings/inventory', icon: ChevronRight },
-      { id: 'settings-staff', label: 'Quản lý nhân viên', path: '/admin/settings/staff', icon: ChevronRight },
+      { id: 'config-room', label: 'Quản lý phòng học', path: '/admin/config/rooms', icon: ChevronRight },
+      { id: 'config-curriculum', label: 'Quản lý chương trình', path: '/admin/config/curriculum', icon: ChevronRight },
+      { id: 'config-inventory', label: 'Quản lý kho', path: '/admin/config/inventory', icon: ChevronRight },
+      { id: 'config-products', label: 'Quản lý sản phẩm', path: '/admin/config/products', icon: ChevronRight },
     ]
   }
 ];

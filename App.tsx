@@ -38,7 +38,9 @@ const WorkConfirmation = lazy(() => import('./pages/WorkConfirmation').then(m =>
 const SalaryReportTeacher = lazy(() => import('./pages/SalaryReportTeacher').then(m => ({ default: m.SalaryReportTeacher })));
 const SalaryReportStaff = lazy(() => import('./pages/SalaryReportStaff').then(m => ({ default: m.SalaryReportStaff })));
 const ContractCreation = lazy(() => import('./pages/ContractCreation').then(m => ({ default: m.ContractCreation })));
-const ContractList = lazy(() => import('./pages/ContractList').then(m => ({ default: m.ContractList })));
+const ContractList = lazy(() => import('./pages/ContractList').then(module => ({ default: module.ContractList })));
+const FinancialAnalyticsHub = lazy(() => import('./pages/FinancialAnalyticsHub').then(module => ({ default: module.FinancialAnalyticsHub })));
+const InvoiceManager = lazy(() => import('./pages/InvoiceManager').then(module => ({ default: module.InvoiceManager })));
 const FeedbackManager = lazy(() => import('./pages/FeedbackManager').then(m => ({ default: m.FeedbackManager })));
 const CustomerServiceDashboard = lazy(() => import('./pages/CustomerServiceDashboard').then(m => ({ default: m.CustomerServiceDashboard })));
 const RevenueReport = lazy(() => import('./pages/RevenueReport').then(m => ({ default: m.RevenueReport })));
@@ -49,7 +51,6 @@ const MarketingTaskManager = lazy(() => import('./pages/MarketingTaskManager').t
 const MarketingKpiManager = lazy(() => import('./pages/MarketingKpiManager').then(m => ({ default: m.MarketingKpiManager })));
 const MarketingPlatformStats = lazy(() => import('./pages/MarketingPlatformStats').then(m => ({ default: m.MarketingPlatformStats })));
 const TrainingReport = lazy(() => import('./pages/TrainingReport').then(m => ({ default: m.TrainingReport })));
-const InvoiceManager = lazy(() => import('./pages/InvoiceManager').then(m => ({ default: m.InvoiceManager })));
 const CenterSettings = lazy(() => import('./pages/CenterSettings').then(m => ({ default: m.CenterSettings })));
 const CurriculumManager = lazy(() => import('./pages/CurriculumManager').then(m => ({ default: m.CurriculumManager })));
 const HomeworkManager = lazy(() => import('./pages/HomeworkManager').then(m => ({ default: m.HomeworkManager })));
@@ -214,14 +215,13 @@ const App: React.FC = () => {
                 <Route path="/finance/hub" element={<FinanceHub />} />
                 <Route path="/finance/contracts" element={<ContractList />} />
                 <Route path="/finance/contracts/create" element={<ContractCreation />} />
-                <Route path="/finance/invoices" element={<InvoiceManager />} />
-                <Route path="/finance/revenue" element={<RevenueReport />} />
+                <Route path="finance/invoices" element={<InvoiceManager />} />
                 <Route path="/finance/debt" element={<DebtManagement />} />
 
                 {/* Report Routes */}
                 <Route path="/reports/hub" element={<ReportHub />} />
                 <Route path="/reports/training" element={<TrainingReport />} />
-                <Route path="/reports/finance" element={<RevenueReport />} />
+                <Route path="/reports/financial" element={<FinancialAnalyticsHub />} />
                 <Route path="/reports/monthly" element={<MonthlyReport />} />
 
                 {/* Settings Routes */}

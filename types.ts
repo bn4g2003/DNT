@@ -973,3 +973,94 @@ export interface DepartmentBonusConfig {
   updatedAt?: string;
   createdBy?: string;
 }
+
+// ==========================================
+// ADVANCED FINANCIAL REPORTING TYPES
+// ==========================================
+
+export enum TransactionType {
+  INCOME = 'Thu',
+  EXPENSE = 'Chi'
+}
+
+export enum TransactionCategory {
+  // INCOME
+  TUITION_FEE = 'Học phí',
+  OTHER_REVENUE = 'Doanh thu khác',
+  OTHER_INCOME = 'Thu nhập khác',
+
+  // EXPENSE
+  TEACHER_SALARY = 'Lương giáo viên',
+  TEACHING_SOFTWARE = 'Phần mềm cho công tác giảng dạy', // Depreciable
+  MARKETING = 'Chi phí Marketing',
+  STAFF_SALARY = 'Chi phí Lương nhân viên cấp cơ sở',
+  SALES_EXPENSE = 'Chi phí bán hàng khác',
+  MANAGER_SALARY = 'Chi phí Lương nhân viên quản lý',
+  SOFTWARE_COST = 'Chi phí phần mềm', // Depreciable
+  ASSET_COST = 'Chi phí tài sản hữu hình', // Depreciable
+  CORP_MANAGEMENT = 'Chi phí quản lý doanh nghiệp khác',
+  OTHER_EXPENSE = 'Chi phí khác',
+  WITHDRAWAL = 'Rút lợi nhuận',
+  FUND_DEDUCTION = 'Trích từ quỹ'
+}
+
+export interface FinancialTransaction {
+  id: string;
+  date: string; // ISO Date YYYY-MM-DD
+  amount: number;
+  type: TransactionType;
+  category: TransactionCategory;
+  subCategory?: string; // Tên khóa học, loại chi tiết
+  description: string;
+  paymentMethod: 'Tiền mặt' | 'Chuyển khoản';
+  referenceId?: string; // ContractID, SalaryID, etc.
+  referenceType?: 'Contract' | 'Salary' | 'Asset' | 'Manual' | 'Depreciation';
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface Asset {
+  id: string;
+  code: string;
+  name: string;
+  category: 'Phần mềm cho công tác giảng dạy' | 'Chi phí phần mềm' | 'Chi phí tài sản hữu hình';
+  purchaseDate: string;
+  cost: number; // Nguyên giá
+  usefulLife: number; // Thời gian khấu hao (tháng)
+  monthlyDepreciation: number; // Mức khấu hao tháng
+  residualValue: number; // Giá trị còn lại
+  status: 'Đang khấu hao' | 'Đã khấu hao xong' | 'Thanh lý';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepreciationHistory {
+  id: string;
+  assetId: string;
+  assetName: string;
+  month: number;
+  year: number;
+  amount: number;
+  date: string;
+}
+
+export interface TeacherDebtRecord {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  month: number;
+  year: number;
+  classId?: string;
+  className?: string; // Mã lớp
+
+  // Debt calculation
+  totalSessions: number; // Số buổi dạy thực tế
+  salaryPerSession: number;
+  totalSalary: number; // Lương phải trả
+
+  paidAmount: number; // Đã trả
+  remainingDebt: number; // Còn nợ
+
+  status: 'Chưa trả' | 'Trả một phần' | 'Đã trả hết';
+  lastPaymentDate?: string;
+}
